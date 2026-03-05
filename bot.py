@@ -714,6 +714,35 @@ def admin_keyboard():
 async def cmd_start(message: Message, state: FSMContext):
     user_id = message.from_user.id
     await state.clear()
+    
+    # Проверяем есть ли параметр start (для присоединения к сделке)
+    args = message.text.split()
+    if len(args) > 1 and args[1].startswith('deal_'):
+        deal_id = args[1].replace('deal_', '')
+        deal = deals.get(deal_id)
+        
+        if deal:
+            # Показываем детали сделки и просим присоединиться
+            text = (
+                f"📋 **Детали сделки**\n\n"
+                f"🆔 ID: `{deal_id}`\n"
+                f"👤 Создатель: @{deal['buyer_username']}\n"
+                f"👤 Участник: @{deal['seller_username']}\n"
+                f"💰 Сумма: {deal['amount']}₽\n"
+                f"🏷️ Тип: {deal['type']}\n"
+                f"📝 Описание: {deal['description']}\n\n"
+                f"🚦 Статус: {deal['status']}"
+            )
+            await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"join_deal_{deal_id}")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_to_menu")],
+            ]))
+            return
+        else:
+            await message.answer("❌ Сделка не найдена или удалена")
+            return
+    
+    # Обычная загрузка (без параметров)
     if user_id not in users:
         users[user_id] = {
             'username': message.from_user.username or "нет",
@@ -724,7 +753,21 @@ async def cmd_start(message: Message, state: FSMContext):
         user_stats[user_id] = {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'}
         await log_event('join', user_id, f"Новый пользователь @{message.from_user.username or 'unknown'} (id={user_id})")
     text = WELCOME_TEXT.format(users=len(users), products=len(products), deals=len(deals))
-    await message.answer(text, reply_markup=main_keyboard(user_id))
+    
+    # Отправляем баннер с текстом (если баннер существует)
+    try:
+        if BANNER_PATH and os.path.exists(BANNER_PATH):
+            with open(BANNER_PATH, 'rb') as banner:
+                await message.answer_photo(
+                    photo=banner,
+                    caption=text,
+                    reply_markup=main_keyboard(user_id)
+                )
+        else:
+            await message.answer(text, reply_markup=main_keyboard(user_id))
+    except:
+        # Если баннер не найден, отправляем просто текст
+        await message.answer(text, reply_markup=main_keyboard(user_id))
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: Message):
@@ -732,6 +775,156 @@ async def cmd_admin(message: Message):
         await message.answer("❌ Нет доступа")
         return
     await message.answer("👑 **Админ-панель**", reply_markup=admin_keyboard())
+
+# ============ УПРАВЛЕНИЕ СДЕЛКАМИ ============
+
+@dp.callback_query(F.data.startswith("join_deal_"))
+async def join_deal_callback(call: CallbackQuery):
+    deal_id = call.data.replace("join_deal_", "")
+    deal = deals.get(deal_id)
+    user_id = call.from_user.id
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена")
+        return
+    
+    # Проверяем, это уже участник?
+    if user_id == deal['buyer_id'] or user_id == deal['seller_id']:
+        await call.answer("✅ Вы уже участник этой сделки", show_alert=True)
+        return
+    
+    # Добавляем второго участника
+    if deal['seller_id'] is None:
+        deal['seller_id'] = user_id
+        deal['seller_username'] = call.from_user.username or str(user_id)
+        
+        await call.answer("✅ Вы присоединились к сделке!", show_alert=True)
+        
+        buyer_id = deal['buyer_id']
+        
+        # Уведомляем создателя
+        try:
+            await bot.send_message(
+                buyer_id,
+                f"✅ **К вашей сделке присоединился участник!**\n\n"
+                f"🆔 ID: `{deal_id}`\n"
+                f"👤 Теперь участник: @{deal['seller_username']}\n"
+                f"💰 Сумма: {deal['amount']}₽\n\n"
+                f"Сделка готова к подтверждению менеджером!"
+            )
+        except:
+            pass
+        
+        # Уведомляем админа
+        deal_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_deal_{deal_id}"),
+             InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_deal_{deal_id}")],
+            [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
+        ])
+        
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"🤝 **Участник присоединился к сделке!**\n\n"
+                f"🆔 `{deal_id}`\n"
+                f"👤 Создатель: @{deal['buyer_username']} (id={deal['buyer_id']})\n"
+                f"👤 Участник: @{deal['seller_username']} (id={user_id})\n"
+                f"💰 {deal['amount']}₽\n"
+                f"📝 {deal['description']}",
+                reply_markup=deal_markup
+            )
+        except:
+            pass
+        
+        await log_event('deal_confirmed', buyer_id, f"К сделке #{deal_id} присоединился @{deal['seller_username']}")
+        
+        await call.message.edit_text(
+            f"✅ **Вы присоединились к сделке!**\n\n"
+            f"🆔 ID: `{deal_id}`\n"
+            f"👤 Создатель: @{deal['buyer_username']}\n"
+            f"💰 Сумма: {deal['amount']}₽\n\n"
+            f"Ожидайте подтверждения менеджера...",
+            reply_markup=back_kb()
+        )
+    else:
+        await call.answer("❌ К этой сделке уже присоединился второй участник", show_alert=True)
+
+# ============ ОБРАБОТЧИКИ ПРИСОЕДИНЕНИЯ К СДЕЛКЕ ============
+
+@dp.callback_query(F.data.startswith("join_deal_"))
+async def join_deal_callback(call: CallbackQuery):
+    deal_id = call.data.replace("join_deal_", "")
+    user_id = call.from_user.id
+    deal = deals.get(deal_id)
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена или удалена", show_alert=True)
+        return
+    
+    # Проверяем статус сделки
+    if deal['status'] != 'waiting_confirmation':
+        await call.answer("❌ Эта сделка уже обработана", show_alert=True)
+        return
+    
+    # Показываем детали сделки
+    text = (
+        f"📋 **Детали сделки**\n\n"
+        f"🆔 ID: `{deal_id}`\n"
+        f"👤 Инициатор: @{deal['buyer_username']}\n"
+        f"💰 Сумма: {deal['amount']}₽\n"
+        f"🏷️ Тип: {deal['type']}\n"
+        f"📝 Описание:\n{deal['description']}\n\n"
+        f"🚦 Статус: Ожидает подтверждения"
+    )
+    
+    await call.message.edit_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Я согласен присоединиться", callback_data=f"confirm_join_{deal_id}")],
+            [InlineKeyboardButton(text="❌ Отклонить", callback_data="back_to_menu")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("confirm_join_"))
+async def confirm_join_deal(call: CallbackQuery):
+    deal_id = call.data.replace("confirm_join_", "")
+    user_id = call.from_user.id
+    deal = deals.get(deal_id)
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена", show_alert=True)
+        return
+    
+    # Отправляем уведомление админу что второй участник присоединился
+    deal_markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_deal_{deal_id}"),
+         InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_deal_{deal_id}")],
+        [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
+    ])
+    
+    joined_username = call.from_user.username or str(user_id)
+    
+    try:
+        await bot.send_message(
+            ADMIN_ID,
+            f"✅ **УЧАСТНИК ПРИСОЕДИНИЛСЯ**\n\n"
+            f"🆔 {deal_id}\n"
+            f"👤 Инициатор: @{deal['buyer_username']} (id={deal['buyer_id']})\n"
+            f"👤 Участник: @{joined_username} (id={user_id})\n"
+            f"💰 {deal['amount']}₽\n"
+            f"🏷️ Тип: {deal['type']}\n"
+            f"📝 {deal['description']}",
+            reply_markup=deal_markup
+        )
+    except:
+        pass
+    
+    await call.answer("✅ Вы присоединились к сделке!", show_alert=True)
+    await call.message.edit_text(
+        f"✅ **Вы присоединились к сделке {deal_id}**\n\n"
+        f"Администратор рассмотрит и свяжется с вами.",
+        reply_markup=back_kb()
+    )
 
 # ============ УПРАВЛЕНИЕ СДЕЛКАМИ ============
 
@@ -759,7 +952,7 @@ async def confirm_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"✅ **Сделка #{deal_id[:6]} подтверждена!**\n\n"
+            f"✅ **Сделка #{deal_id} подтверждена!**\n\n"
             f"💰 Сумма: {deal['amount']}₽\n"
             f"👤 Продавец: @{deal['seller_username']}\n\n"
             f"Менеджер @{MANAGER_USERNAME} свяжется с вами."
@@ -772,7 +965,7 @@ async def confirm_deal_callback(call: CallbackQuery):
         await bot.send_message(
             seller_id,
             f"✅ **Новая сделка подтверждена!**\n\n"
-            f"🆔 #{deal_id[:6]}\n"
+            f"🆔 #{deal_id}\n"
             f"💰 Сумма: {deal['amount']}₽\n"
             f"👤 Покупатель: @{deal['buyer_username']}\n"
             f"📝 {deal['description']}\n\n"
@@ -781,7 +974,7 @@ async def confirm_deal_callback(call: CallbackQuery):
     except:
         pass
     
-    await log_event('deal_confirmed', buyer_id, f"Сделка #{deal_id[:6]} подтверждена ({deal['amount']}₽)")
+    await log_event('deal_confirmed', buyer_id, f"Сделка #{deal_id} подтверждена ({deal['amount']}₽)")
 
 @dp.callback_query(F.data.startswith("reject_deal_"))
 async def reject_deal_callback(call: CallbackQuery):
@@ -807,7 +1000,7 @@ async def reject_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"❌ **Сделка #{deal_id} отклонена**\n\n"
             f"Причина может быть связана с проверкой безопасности.\n"
             f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
         )
@@ -818,14 +1011,14 @@ async def reject_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             seller_id,
-            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"❌ **Сделка #{deal_id} отклонена**\n\n"
             f"Сумма: {deal['amount']}₽\n"
             f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
         )
     except:
         pass
     
-    await log_event('deal_rejected', buyer_id, f"Сделка #{deal_id[:6]} отклонена ({deal['amount']}₽)")
+    await log_event('deal_rejected', buyer_id, f"Сделка #{deal_id} отклонена ({deal['amount']}₽)")
 
 @dp.callback_query(F.data.startswith("deal_details_"))
 async def deal_details_callback(call: CallbackQuery):
@@ -841,7 +1034,7 @@ async def deal_details_callback(call: CallbackQuery):
         return
     
     text = (
-        f"📋 **Детали сделки #{deal_id[:6]}**\n\n"
+        f"📋 **Детали сделки #{deal_id}**\n\n"
         f"🚦 Статус: {deal['status']}\n"
         f"📅 Дата: {deal['created']}\n\n"
         f"👤 Покупатель: @{deal['buyer_username']} (id={deal['buyer_id']})\n"
@@ -1243,22 +1436,30 @@ async def deal_seller_username(message: Message):
         buyer_username = message.from_user.username or str(buyer_id)
         seller_username = deal_data.get('seller_username', '?')
         
-        # Сообщение покупателю
+        # Создаем ссылку на сделку для присоединения
+        deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
+        
+        # ОТПРАВЛЯЕМ ССЫЛКУ СОЗДАТЕЛЮ
         await message.answer(
-            f"✅ **Сделка #{deal_id[:6]} создана!**\n\n"
-            f"👤 Покупатель: @{buyer_username} (вы)\n"
-            f"👤 Продавец: @{seller_username}\n"
+            f"✅ **Сделка создана!**\n\n"
+            f"🆔 Номер: `{deal_id}`\n"
+            f"👤 Вы: @{buyer_username}\n"
+            f"👤 Партнер: @{seller_username}\n"
             f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
             f"📝 {message.text}\n\n"
-            f"Ожидаем подтверждение от продавца или менеджера.",
-            reply_markup=back_kb()
+            f"📎 **Ссылка для присоединения:**\n"
+            f"`{deal_link}`\n\n"
+            f"Отправьте эту ссылку партнеру чтобы он присоединился к сделке.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📋 Детали сделки", callback_data=f"deal_details_{deal_id}")],
+                [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
+            ])
         )
         
         await log_event('deal_created', buyer_id,
-            f"Сделка @{buyer_username} → @{seller_username} — {deals[deal_id]['amount']}₽ — тип: {deals[deal_id]['type']}")
+            f"Сделка @{buyer_username} с @{seller_username} на {deals[deal_id]['amount']}₽")
         
-        # Сообщение менеджеру/админу с кнопками
-        deal_link = f"tg://user?id={seller_id}" if seller_id else "unknown"
+        # Сообщение администратору с кнопками управления
         deal_markup = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_deal_{deal_id}"),
              InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_deal_{deal_id}")],
@@ -1268,12 +1469,14 @@ async def deal_seller_username(message: Message):
         try:
             await bot.send_message(
                 ADMIN_ID,
-                f"🤝 **Новая сделка!**\n\n"
-                f"🆔 #{deal_id[:6]}\n"
+                f"🤝 **НОВАЯ СДЕЛКА**\n\n"
+                f"🆔 {deal_id}\n"
                 f"👤 Покупатель: @{buyer_username} (id={buyer_id})\n"
                 f"👤 Продавец: @{seller_username} (id={seller_id})\n"
                 f"💰 {deals[deal_id]['amount']}₽\n"
-                f"📝 {message.text}",
+                f"🏷️ Тип: {deals[deal_id]['type']}\n"
+                f"📝 {message.text}\n\n"
+                f"🔗 Ссылка для присоединения:\n{deal_link}",
                 reply_markup=deal_markup
             )
         except:
@@ -1604,17 +1807,38 @@ async def handle_text(message: Message, state: FSMContext):
         buyer_username = message.from_user.username or str(buyer_id)
         seller_username = deal_data.get('seller_username', '?')
         
+        # ССЫЛКА НА СДЕЛКУ для присоединения
+        deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
+        
         await message.answer(
-            f"✅ **Сделка #{deal_id[:6]} создана!**\n\n"
+            f"✅ **Сделка создана!**\n\n"
+            f"🆔 ID: `{deal_id}`\n"
             f"👤 Покупатель: @{buyer_username} (вы)\n"
             f"👤 Продавец: @{seller_username}\n"
             f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
             f"📝 {text}\n\n"
-            f"Ожидаем подтверждение...",
+            f"🔗 **Ссылка на сделку:**\n`{deal_link}`\n\n"
+            f"Отправьте эту ссылку другому человеку, чтобы он присоединился!",
             reply_markup=back_kb()
         )
         await log_event('deal_created', buyer_id,
             f"Сделка @{buyer_username} → @{seller_username} — {deals[deal_id]['amount']}₽ — тип: {deals[deal_id]['type']}")
+        
+        # Уведомление продавцу со ссылкой на присоединение
+        try:
+            await bot.send_message(
+                seller_id,
+                f"🤝 **На вас создали новую сделку!**\n\n"
+                f"🆔 ID: `{deal_id}`\n"
+                f"👤 Покупатель: @{buyer_username}\n"
+                f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
+                f"📝 {text}\n\n"
+                f"🔗 **Ссылка на сделку:**\n[Открыть сделку](https://t.me/{BOT_USERNAME}?start=deal_{deal_id})\n\n"
+                f"Нажмите на ссылку чтобы присоединиться к сделке!",
+                parse_mode="Markdown"
+            )
+        except:
+            pass
         
         # Сообщение админу с кнопками управления
         deal_markup = InlineKeyboardMarkup(inline_keyboard=[
@@ -1626,12 +1850,14 @@ async def handle_text(message: Message, state: FSMContext):
         try:
             await bot.send_message(ADMIN_ID,
                 f"🤝 **Новая сделка!**\n\n"
-                f"🆔 #{deal_id[:6]}\n"
+                f"🆔 `{deal_id}`\n"
                 f"👤 Покупатель: @{buyer_username} (id={buyer_id})\n"
                 f"👤 Продавец: @{seller_username} (id={seller_id})\n"
                 f"💰 {deals[deal_id]['amount']}₽\n"
-                f"📝 {text}",
-                reply_markup=deal_markup)
+                f"📝 {text}\n\n"
+                f"🔗 [Открыть сделку](https://t.me/{BOT_USERNAME}?start=deal_{deal_id})",
+                reply_markup=deal_markup,
+                parse_mode="Markdown")
         except:
             pass
         return
