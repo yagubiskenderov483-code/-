@@ -755,9 +755,7 @@ async def category_callback(call: CallbackQuery):
         await call.answer("Категория не найдена")
         return
     buttons = []
-    for sub in cat["subcategories"]:
-        # Используем индекс подкатегории для надёжности
-        sub_idx = cat["subcategories"].index(sub)
+    for sub_idx, sub in enumerate(cat["subcategories"]):
         buttons.append([InlineKeyboardButton(text=sub["name"], callback_data=f"sub_{cat_id}_{sub_idx}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="catalog")])
     await call.message.edit_text(f"{cat['name']}\n\nВыбери подкатегорию:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -1119,7 +1117,7 @@ async def disable_logs_callback(call: CallbackQuery):
 # ============ ОБРАБОТКА ТЕКСТА ============
 
 @dp.message(F.text)
-async def handle_text(message: Message):
+async def handle_text(message: Message, state: FSMContext):
     global LOG_CHAT_ID, LOG_THREAD_ID
     user_id = message.from_user.id
     state_data = user_states.get(user_id, {})
