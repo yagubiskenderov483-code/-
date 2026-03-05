@@ -70,25 +70,134 @@ temp_deal_data = {}
 user_states = {}
 
 USER_STATUSES = {
-    'new':        {'name_ru': '🟢 Новичок',      'name_en': '🟢 Newbie'},
-    'verified':   {'name_ru': '✅ Проверенный',   'name_en': '✅ Verified'},
-    'suspicious': {'name_ru': '⚠️ Сомнительный', 'name_en': '⚠️ Suspicious'},
-    'scammer':    {'name_ru': '🔴 Мошенник',      'name_en': '🔴 Scammer'},
-    'trusted':    {'name_ru': '💎 Доверенный',    'name_en': '💎 Trusted'},
-    'partner':    {'name_ru': '🤝 Партнер',       'name_en': '🤝 Partner'},
+    'new':        {'name_ru': '🟢 Новичок',      'name_en': '🟢 Newbie',      'name_es': '🟢 Novato',      'name_fr': '🟢 Novice',      'name_de': '🟢 Neuling'},
+    'verified':   {'name_ru': '✅ Проверенный',   'name_en': '✅ Verified',    'name_es': '✅ Verificado',   'name_fr': '✅ Vérifié',     'name_de': '✅ Verifiziert'},
+    'suspicious': {'name_ru': '⚠️ Сомнительный', 'name_en': '⚠️ Suspicious', 'name_es': '⚠️ Sospechoso',  'name_fr': '⚠️ Suspect',     'name_de': '⚠️ Verdächtig'},
+    'scammer':    {'name_ru': '🔴 Мошенник',      'name_en': '🔴 Scammer',    'name_es': '🔴 Estafador',   'name_fr': '🔴 Arnaqueur',   'name_de': '🔴 Betrüger'},
+    'trusted':    {'name_ru': '💎 Доверенный',    'name_en': '💎 Trusted',    'name_es': '💎 Confiable',   'name_fr': '💎 Fiable',      'name_de': '💎 Vertrauenswürdig'},
+    'partner':    {'name_ru': '🤝 Партнер',       'name_en': '🤝 Partner',    'name_es': '🤝 Socio',       'name_fr': '🤝 Partenaire', 'name_de': '🤝 Partner'},
+}
+
+# Переводы
+TRANSLATIONS = {
+    'ru': {
+        'welcome': '🛍️ **LOLZ MARKET** — твой надежный маркетплейс!',
+        'back': '🔙 Назад',
+        'catalog': '🛒 Каталог',
+        'create_deal': '🤝 Создать сделку',
+        'sell_product': '📤 Продать товар',
+        'my_requisites': '💰 Мои реквизиты',
+        'profile': '👤 Профиль',
+        'top_sellers': '⭐ Топ продавцов',
+        'language': '🌐 Язык',
+        'support': '📞 Поддержка',
+        'site': '🌍 Сайт',
+        'menu': 'Выбери действие в меню ниже 👇',
+        'users': 'Пользователей',
+        'products': 'Товаров',
+        'deals': 'Сделок',
+        'admin_panel': '👑 Админ-панель',
+        'view_deal': '📋 Просмотреть сделку',
+        'accept_deal': '✅ Принять сделку',
+        'reject_deal': '❌ Отклонить сделку',
+    },
+    'en': {
+        'welcome': '🛍️ **LOLZ MARKET** — your reliable marketplace!',
+        'back': '🔙 Back',
+        'catalog': '🛒 Catalog',
+        'create_deal': '🤝 Create Deal',
+        'sell_product': '📤 Sell Product',
+        'my_requisites': '💰 My Requisites',
+        'profile': '👤 Profile',
+        'top_sellers': '⭐ Top Sellers',
+        'language': '🌐 Language',
+        'support': '📞 Support',
+        'site': '🌍 Website',
+        'menu': 'Choose an action from the menu below 👇',
+        'users': 'Users',
+        'products': 'Products',
+        'deals': 'Deals',
+        'admin_panel': '👑 Admin Panel',
+        'view_deal': '📋 View Deal',
+        'accept_deal': '✅ Accept Deal',
+        'reject_deal': '❌ Reject Deal',
+    },
+    'es': {
+        'welcome': '🛍️ **LOLZ MARKET** — ¡tu mercado confiable!',
+        'back': '🔙 Atrás',
+        'catalog': '🛒 Catálogo',
+        'create_deal': '🤝 Crear Oferta',
+        'sell_product': '📤 Vender Producto',
+        'my_requisites': '💰 Mis Requisitos',
+        'profile': '👤 Perfil',
+        'top_sellers': '⭐ Mejores Vendedores',
+        'language': '🌐 Idioma',
+        'support': '📞 Soporte',
+        'site': '🌍 Sitio Web',
+        'menu': 'Elige una acción del menú a continuación 👇',
+        'users': 'Usuarios',
+        'products': 'Productos',
+        'deals': 'Ofertas',
+        'admin_panel': '👑 Panel de Administración',
+        'view_deal': '📋 Ver Oferta',
+        'accept_deal': '✅ Aceptar Oferta',
+        'reject_deal': '❌ Rechazar Oferta',
+    },
+    'fr': {
+        'welcome': '🛍️ **LOLZ MARKET** — votre marché fiable!',
+        'back': '🔙 Retour',
+        'catalog': '🛒 Catalogue',
+        'create_deal': '🤝 Créer une Offre',
+        'sell_product': '📤 Vendre un Produit',
+        'my_requisites': '💰 Mes Coordonnées',
+        'profile': '👤 Profil',
+        'top_sellers': '⭐ Meilleurs Vendeurs',
+        'language': '🌐 Langue',
+        'support': '📞 Support',
+        'site': '🌍 Site Web',
+        'menu': 'Choisissez une action ci-dessous 👇',
+        'users': 'Utilisateurs',
+        'products': 'Produits',
+        'deals': 'Offres',
+        'admin_panel': '👑 Panneau d\'Administration',
+        'view_deal': '📋 Voir l\'Offre',
+        'accept_deal': '✅ Accepter l\'Offre',
+        'reject_deal': '❌ Rejeter l\'Offre',
+    },
+    'de': {
+        'welcome': '🛍️ **LOLZ MARKET** — dein zuverlässiger Marktplatz!',
+        'back': '🔙 Zurück',
+        'catalog': '🛒 Katalog',
+        'create_deal': '🤝 Angebot Erstellen',
+        'sell_product': '📤 Produkt Verkaufen',
+        'my_requisites': '💰 Meine Daten',
+        'profile': '👤 Profil',
+        'top_sellers': '⭐ Top Verkäufer',
+        'language': '🌐 Sprache',
+        'support': '📞 Unterstützung',
+        'site': '🌍 Website',
+        'menu': 'Wählen Sie eine Aktion unten 👇',
+        'users': 'Benutzer',
+        'products': 'Produkte',
+        'deals': 'Angebote',
+        'admin_panel': '👑 Admin-Panel',
+        'view_deal': '📋 Angebot Ansehen',
+        'accept_deal': '✅ Angebot Akzeptieren',
+        'reject_deal': '❌ Angebot Ablehnen',
+    },
 }
 
 TOP_SELLERS = [
-    {"name": "@a***n", "deals": 847, "rating": 4.9},
-    {"name": "@m***l", "deals": 832, "rating": 4.8},
-    {"name": "@s***a", "deals": 821, "rating": 4.9},
-    {"name": "@d***v", "deals": 815, "rating": 4.7},
-    {"name": "@k***y", "deals": 809, "rating": 4.8},
-    {"name": "@p***r", "deals": 798, "rating": 4.9},
-    {"name": "@v***n", "deals": 784, "rating": 4.8},
-    {"name": "@n***k", "deals": 776, "rating": 4.7},
-    {"name": "@t***a", "deals": 765, "rating": 4.9},
-    {"name": "@r***o", "deals": 752, "rating": 4.8},
+    {"name": "@alexin", "deals": 847, "rating": 4.9},
+    {"name": "@malik_shop", "deals": 832, "rating": 4.8},
+    {"name": "@stella_market", "deals": 821, "rating": 4.9},
+    {"name": "@dmitry_pro", "deals": 815, "rating": 4.7},
+    {"name": "@kings_gaming", "deals": 809, "rating": 4.8},
+    {"name": "@prime_seller", "deals": 798, "rating": 4.9},
+    {"name": "@venus_shop", "deals": 784, "rating": 4.8},
+    {"name": "@nikola_deals", "deals": 776, "rating": 4.7},
+    {"name": "@titan_market", "deals": 765, "rating": 4.9},
+    {"name": "@royal_trader", "deals": 752, "rating": 4.8},
 ]
 
 WELCOME_TEXT = """
@@ -537,6 +646,12 @@ def get_user_status(user_id):
     lang = user_language.get(user_id, 'ru')
     return USER_STATUSES[status][f'name_{lang}']
 
+def get_text(key: str, lang: str = 'ru'):
+    """Получить переведенный текст"""
+    if lang not in TRANSLATIONS:
+        lang = 'ru'
+    return TRANSLATIONS[lang].get(key, key)
+
 def get_user_rating(user_id):
     if user_id not in reviews_db or not reviews_db[user_id]:
         return 0.0
@@ -617,6 +732,126 @@ async def cmd_admin(message: Message):
         await message.answer("❌ Нет доступа")
         return
     await message.answer("👑 **Админ-панель**", reply_markup=admin_keyboard())
+
+# ============ УПРАВЛЕНИЕ СДЕЛКАМИ ============
+
+@dp.callback_query(F.data.startswith("confirm_deal_"))
+async def confirm_deal_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Только администратор может подтверждать сделки", show_alert=True)
+        return
+    
+    deal_id = call.data.replace("confirm_deal_", "")
+    deal = deals.get(deal_id)
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена")
+        return
+    
+    deal['status'] = 'confirmed'
+    
+    await call.answer("✅ Сделка подтверждена!", show_alert=True)
+    
+    buyer_id = deal.get('buyer_id')
+    seller_id = deal.get('seller_id')
+    
+    # Уведомление покупателю
+    try:
+        await bot.send_message(
+            buyer_id,
+            f"✅ **Сделка #{deal_id[:6]} подтверждена!**\n\n"
+            f"💰 Сумма: {deal['amount']}₽\n"
+            f"👤 Продавец: @{deal['seller_username']}\n\n"
+            f"Менеджер @{MANAGER_USERNAME} свяжется с вами."
+        )
+    except:
+        pass
+    
+    # Уведомление продавцу
+    try:
+        await bot.send_message(
+            seller_id,
+            f"✅ **Новая сделка подтверждена!**\n\n"
+            f"🆔 #{deal_id[:6]}\n"
+            f"💰 Сумма: {deal['amount']}₽\n"
+            f"👤 Покупатель: @{deal['buyer_username']}\n"
+            f"📝 {deal['description']}\n\n"
+            f"Передайте товар покупателю. Менеджер @{MANAGER_USERNAME} проверит сделку."
+        )
+    except:
+        pass
+    
+    await log_event('deal_confirmed', buyer_id, f"Сделка #{deal_id[:6]} подтверждена ({deal['amount']}₽)")
+
+@dp.callback_query(F.data.startswith("reject_deal_"))
+async def reject_deal_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Только администратор может отклонять сделки", show_alert=True)
+        return
+    
+    deal_id = call.data.replace("reject_deal_", "")
+    deal = deals.get(deal_id)
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена")
+        return
+    
+    deal['status'] = 'rejected'
+    
+    await call.answer("❌ Сделка отклонена!", show_alert=True)
+    
+    buyer_id = deal.get('buyer_id')
+    seller_id = deal.get('seller_id')
+    
+    # Уведомление покупателю
+    try:
+        await bot.send_message(
+            buyer_id,
+            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"Причина может быть связана с проверкой безопасности.\n"
+            f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
+        )
+    except:
+        pass
+    
+    # Уведомление продавцу
+    try:
+        await bot.send_message(
+            seller_id,
+            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"Сумма: {deal['amount']}₽\n"
+            f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
+        )
+    except:
+        pass
+    
+    await log_event('deal_rejected', buyer_id, f"Сделка #{deal_id[:6]} отклонена ({deal['amount']}₽)")
+
+@dp.callback_query(F.data.startswith("deal_details_"))
+async def deal_details_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Только администратор может смотреть детали", show_alert=True)
+        return
+    
+    deal_id = call.data.replace("deal_details_", "")
+    deal = deals.get(deal_id)
+    
+    if not deal:
+        await call.answer("❌ Сделка не найдена")
+        return
+    
+    text = (
+        f"📋 **Детали сделки #{deal_id[:6]}**\n\n"
+        f"🚦 Статус: {deal['status']}\n"
+        f"📅 Дата: {deal['created']}\n\n"
+        f"👤 Покупатель: @{deal['buyer_username']} (id={deal['buyer_id']})\n"
+        f"👤 Продавец: @{deal['seller_username']} (id={deal['seller_id']})\n\n"
+        f"💰 Сумма: {deal['amount']}₽\n"
+        f"🏷️ Тип: {deal['type']}\n\n"
+        f"📝 Описание:\n{deal['description']}"
+    )
+    
+    await call.message.edit_text(text, reply_markup=back_kb("admin_deals"))
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
@@ -716,17 +951,29 @@ async def language_callback(call: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru"),
          InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en")],
+        [InlineKeyboardButton(text="🇪🇸 Español", callback_data="lang_es"),
+         InlineKeyboardButton(text="🇫🇷 Français", callback_data="lang_fr")],
+        [InlineKeyboardButton(text="🇩🇪 Deutsch", callback_data="lang_de")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")],
     ])
-    await call.message.edit_text("🌐 Выбери язык / Choose language:", reply_markup=kb)
+    await call.message.edit_text("🌐 Choose language / Выбери язык:", reply_markup=kb)
 
-@dp.callback_query(F.data.in_({"lang_ru", "lang_en"}))
+@dp.callback_query(F.data.in_({"lang_ru", "lang_en", "lang_es", "lang_fr", "lang_de"}))
 async def set_language(call: CallbackQuery):
     user_id = call.from_user.id
     lang = call.data.split("_")[1]
     user_language[user_id] = lang
-    msg = "✅ Язык изменён на **Русский**" if lang == "ru" else "✅ Language changed to **English**"
+    
+    lang_names = {
+        'ru': '✅ Язык изменён на **Русский**',
+        'en': '✅ Language changed to **English**',
+        'es': '✅ Idioma cambiado a **Español**',
+        'fr': '✅ Langue changée en **Français**',
+        'de': '✅ Sprache zu **Deutsch** geändert',
+    }
+    msg = lang_names.get(lang, '✅ Язык изменён')
     await call.message.edit_text(msg, reply_markup=back_kb())
+    await call.answer()
 
 # ============ ТОП ПРОДАВЦОВ ============
 
@@ -915,12 +1162,124 @@ async def create_deal_callback(call: CallbackQuery):
 async def deal_type_callback(call: CallbackQuery):
     user_id = call.from_user.id
     deal_type = call.data.replace("deal_type_", "")
-    temp_deal_data[user_id] = {'type': deal_type}
-    user_states[user_id] = {'action': 'deal_amount'}
+    temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id}
+    user_states[user_id] = {'action': 'deal_seller_username'}
     await call.message.edit_text(
-        "💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
+        "👤 **Введи username продавца** (например @malik_shop):",
         reply_markup=back_kb("create_deal")
     )
+
+@dp.message(F.text & (F.text.startswith("@") | F.text.startswith("deal_seller")))
+async def deal_seller_username(message: Message):
+    user_id = message.from_user.id
+    state_data = user_states.get(user_id, {})
+    
+    if state_data.get('action') == 'deal_seller_username':
+        seller_username = message.text.strip().lstrip('@')
+        # Проверяем есть ли такой пользователь
+        seller_found = False
+        seller_id = None
+        for uid, user in users.items():
+            if user.get('username', '').lower() == seller_username.lower():
+                seller_found = True
+                seller_id = uid
+                break
+        
+        if not seller_found:
+            await message.answer(f"❌ Продавец @{seller_username} не найден в системе")
+            return
+        
+        temp_deal_data[user_id]['seller_id'] = seller_id
+        temp_deal_data[user_id]['seller_username'] = seller_username
+        user_states[user_id] = {'action': 'deal_amount'}
+        await message.answer(
+            f"✅ Продавец: @{seller_username}\n\n"
+            f"💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
+            reply_markup=back_kb("create_deal")
+        )
+        return
+
+    # Если это сумма сделки (обычный обработчик)
+    if state_data.get('action') == 'deal_amount':
+        try:
+            amount = int(message.text.replace(' ', '').replace(',', ''))
+            temp_deal_data.setdefault(user_id, {})['amount'] = amount
+            user_states[user_id] = {'action': 'deal_description'}
+            await message.answer(
+                f"💰 Сумма: **{amount}₽**\n\n📝 Опиши что продаётся/покупается:",
+                reply_markup=back_kb("create_deal")
+            )
+        except ValueError:
+            await message.answer("❌ Введи сумму числом, например: `5000`")
+        return
+
+    # Описание сделки
+    if state_data.get('action') == 'deal_description':
+        deal_data = temp_deal_data.get(user_id, {})
+        deal_id = generate_id()
+        
+        buyer_id = deal_data.get('buyer_id', user_id)
+        seller_id = deal_data.get('seller_id')
+        
+        deals[deal_id] = {
+            'id': deal_id,
+            'buyer_id': buyer_id,
+            'seller_id': seller_id,
+            'buyer_username': message.from_user.username or str(buyer_id),
+            'seller_username': deal_data.get('seller_username', '?'),
+            'type': deal_data.get('type', '?'),
+            'amount': deal_data.get('amount', 0),
+            'description': message.text,
+            'status': 'waiting_confirmation',  # Ожидает подтверждения от продавца
+            'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
+        }
+        
+        user_stats.setdefault(buyer_id, {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'})
+        user_stats[buyer_id]['deals_total'] += 1
+        
+        temp_deal_data.pop(user_id, None)
+        del user_states[user_id]
+        
+        buyer_username = message.from_user.username or str(buyer_id)
+        seller_username = deal_data.get('seller_username', '?')
+        
+        # Сообщение покупателю
+        await message.answer(
+            f"✅ **Сделка #{deal_id[:6]} создана!**\n\n"
+            f"👤 Покупатель: @{buyer_username} (вы)\n"
+            f"👤 Продавец: @{seller_username}\n"
+            f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
+            f"📝 {message.text}\n\n"
+            f"Ожидаем подтверждение от продавца или менеджера.",
+            reply_markup=back_kb()
+        )
+        
+        await log_event('deal_created', buyer_id,
+            f"Сделка @{buyer_username} → @{seller_username} — {deals[deal_id]['amount']}₽ — тип: {deals[deal_id]['type']}")
+        
+        # Сообщение менеджеру/админу с кнопками
+        deal_link = f"tg://user?id={seller_id}" if seller_id else "unknown"
+        deal_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_deal_{deal_id}"),
+             InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_deal_{deal_id}")],
+            [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
+        ])
+        
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"🤝 **Новая сделка!**\n\n"
+                f"🆔 #{deal_id[:6]}\n"
+                f"👤 Покупатель: @{buyer_username} (id={buyer_id})\n"
+                f"👤 Продавец: @{seller_username} (id={seller_id})\n"
+                f"💰 {deals[deal_id]['amount']}₽\n"
+                f"📝 {message.text}",
+                reply_markup=deal_markup
+            )
+        except:
+            pass
+        
+        return
 
 # ============ ПРОДАТЬ ТОВАР ============
 
@@ -1126,6 +1485,32 @@ async def handle_text(message: Message, state: FSMContext):
         return
     text = message.text.strip()
 
+    # ПРОВЕРКА SELLER USERNAME ДЛЯ СДЕЛОК
+    if action == 'deal_seller_username':
+        seller_username = text.lstrip('@')
+        # Проверяем есть ли такой пользователь
+        seller_found = False
+        seller_id = None
+        for uid, user in users.items():
+            if user.get('username', '').lower() == seller_username.lower():
+                seller_found = True
+                seller_id = uid
+                break
+        
+        if not seller_found:
+            await message.answer(f"❌ Продавец @{seller_username} не найден в системе")
+            return
+        
+        temp_deal_data[user_id]['seller_id'] = seller_id
+        temp_deal_data[user_id]['seller_username'] = seller_username
+        user_states[user_id] = {'action': 'deal_amount'}
+        await message.answer(
+            f"✅ Продавец: @{seller_username}\n\n"
+            f"💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
+            reply_markup=back_kb("create_deal")
+        )
+        return
+
     # Реквизиты
     if action == 'set_req':
         field = state_data['field']
@@ -1192,39 +1577,61 @@ async def handle_text(message: Message, state: FSMContext):
             await message.answer("❌ Введи сумму числом, например: `5000`")
         return
 
-    # Описание сделки
+    # Описание сделки (НОВАЯ ВЕРСИЯ С ДВУМЯ ПОЛЬЗОВАТЕЛЯМИ)
     if action == 'deal_description':
         deal_data = temp_deal_data.get(user_id, {})
         deal_id = generate_id()
+        seller_id = deal_data.get('seller_id')
+        buyer_id = deal_data.get('buyer_id', user_id)
+        
         deals[deal_id] = {
             'id': deal_id,
-            'buyer_id': user_id,
+            'buyer_id': buyer_id,
+            'seller_id': seller_id,
+            'buyer_username': message.from_user.username or str(buyer_id),
+            'seller_username': deal_data.get('seller_username', '?'),
             'type': deal_data.get('type', '?'),
             'amount': deal_data.get('amount', 0),
             'description': text,
-            'status': 'active',
+            'status': 'waiting_confirmation',
             'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
         }
-        user_stats.setdefault(user_id, {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'})
-        user_stats[user_id]['deals_total'] += 1
+        user_stats.setdefault(buyer_id, {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'})
+        user_stats[buyer_id]['deals_total'] += 1
         temp_deal_data.pop(user_id, None)
         del user_states[user_id]
-        username = message.from_user.username or str(user_id)
+        
+        buyer_username = message.from_user.username or str(buyer_id)
+        seller_username = deal_data.get('seller_username', '?')
+        
         await message.answer(
             f"✅ **Сделка #{deal_id[:6]} создана!**\n\n"
+            f"👤 Покупатель: @{buyer_username} (вы)\n"
+            f"👤 Продавец: @{seller_username}\n"
             f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
             f"📝 {text}\n\n"
-            f"Менеджер @{MANAGER_USERNAME} свяжется с тобой.",
+            f"Ожидаем подтверждение...",
             reply_markup=back_kb()
         )
-        await log_event('deal_created', user_id,
-            f"Сделка @{username} — {deals[deal_id]['amount']}₽ — тип: {deals[deal_id]['type']}")
+        await log_event('deal_created', buyer_id,
+            f"Сделка @{buyer_username} → @{seller_username} — {deals[deal_id]['amount']}₽ — тип: {deals[deal_id]['type']}")
+        
+        # Сообщение админу с кнопками управления
+        deal_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_deal_{deal_id}"),
+             InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_deal_{deal_id}")],
+            [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
+        ])
+        
         try:
             await bot.send_message(ADMIN_ID,
                 f"🤝 **Новая сделка!**\n\n"
-                f"👤 @{username} (id={user_id})\n"
+                f"🆔 #{deal_id[:6]}\n"
+                f"👤 Покупатель: @{buyer_username} (id={buyer_id})\n"
+                f"👤 Продавец: @{seller_username} (id={seller_id})\n"
                 f"💰 {deals[deal_id]['amount']}₽\n"
-                f"📝 {text}")
+                f"📝 {text}",
+                reply_markup=deal_markup)
         except:
             pass
         return
