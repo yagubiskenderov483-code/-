@@ -706,7 +706,8 @@ def admin_keyboard():
         [InlineKeyboardButton(text="⏳ Модерация", callback_data="admin_moderation"),
          InlineKeyboardButton(text="🚦 Статусы", callback_data="admin_statuses")],
         [InlineKeyboardButton(text="📝 Отзывы", callback_data="admin_reviews"),
-         InlineKeyboardButton(text="📋 Логи", callback_data="admin_logs")],
+         InlineKeyboardButton(text="📸 Баннер", callback_data="admin_banner")],
+        [InlineKeyboardButton(text="📋 Логи", callback_data="admin_logs")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")],
     ])
 
@@ -1036,7 +1037,135 @@ async def profile_callback(call: CallbackQuery):
         f"• ✅ Успешных: {stats['deals_success']}\n"
         f"• ❌ Провалено: {stats['deals_failed']}"
     )
-    await call.message.edit_text(text, reply_markup=back_kb())
+    await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data="leave_review")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")],
+    ]))
+
+@dp.callback_query(F.data == "leave_review")
+async def leave_review_callback(call: CallbackQuery):
+    user_id = call.from_user.id
+    user_states[user_id] = {'action': 'review_rating'}
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⭐", callback_data="rating_1"),
+         InlineKeyboardButton(text="⭐⭐", callback_data="rating_2"),
+         InlineKeyboardButton(text="⭐⭐⭐", callback_data="rating_3")],
+        [InlineKeyboardButton(text="⭐⭐⭐⭐", callback_data="rating_4"),
+         InlineKeyboardButton(text="⭐⭐⭐⭐⭐", callback_data="rating_5")],
+    ])
+    
+    await call.message.edit_text(
+        "⭐ **Оцени опыт работы (выбери количество звезд):**",
+        reply_markup=kb
+    )
+
+@dp.callback_query(F.data.startswith("rating_"))
+async def rating_callback(call: CallbackQuery):
+    user_id = call.from_user.id
+    rating = int(call.data.split("_")[1])
+    user_states[user_id] = {'action': 'review_text', 'rating': rating}
+    
+    await call.message.edit_text(
+        f"⭐ **Рейтинг: {rating}/5**\n\n"
+        f"📝 Напиши отзыв (максимум 500 символов):",
+        reply_markup=back_kb("profile")
+    )
+
+@dp.callback_query(F.data == "admin_banner")
+async def admin_banner_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer()
+        return
+    
+    if BANNER_PATH and os.path.exists(BANNER_PATH):
+        text = f"📸 **Баннер загружен**\n\n📍 Путь: `{BANNER_PATH}`"
+        try:
+            with open(BANNER_PATH, 'rb') as f:
+                await call.message.delete()
+                await call.message.chat.send_photo(
+                    photo=f,
+                    caption=text,
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="📤 Загрузить новый", callback_data="upload_banner")],
+                        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")],
+                    ])
+                )
+            return
+        except:
+            pass
+    
+    await call.message.edit_text(
+        "📸 **Баннер не найден**\n\n"
+        "Используй команду /admin_upload чтобы загрузить баннер.\n"
+        "Баннер будет отправляться вместе с текстом в приветствии и админ-панели.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")],
+        ])
+    )
+
+@dp.message(Command("admin_upload"))
+async def admin_upload_banner(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Только администратор")
+        return
+    
+    await message.answer(
+        "📸 **Загрузить баннер**\n\n"
+        "Отправь фото которое будет использоваться как баннер.\n"
+        "Баннер будет автоматически сохранен и использоваться везде где нужен."
+    )
+    user_states[message.from_user.id] = {'action': 'upload_banner'}
+
+@dp.message(F.photo)
+async def handle_photo(message: Message):
+    user_id = message.from_user.id
+    state_data = user_states.get(user_id, {})
+    
+    if state_data.get('action') == 'upload_banner' and user_id == ADMIN_ID:
+        try:
+            # Скачиваем фото
+            file_info = await bot.get_file(message.photo[-1].file_id)
+            downloaded_file = await bot.download_file(file_info.file_path)
+            
+            # Сохраняем как баннер
+            banner_path = '/home/claude/banner.jpg'
+            with open(banner_path, 'wb') as f:
+                f.write(downloaded_file.getbuffer())
+            
+            # Обновляем BANNER_PATH
+            import os
+            os.environ['BANNER_PATH'] = banner_path
+            
+            await message.answer(
+                f"✅ **Баннер загружен!**\n\n"
+                f"📸 Сохранено: `{banner_path}`\n\n"
+                f"Баннер теперь будет использоваться везде!"
+            )
+            
+            del user_states[user_id]
+            await log_event('banner_changed', user_id, "Баннер обновлен администратором")
+        except Exception as e:
+            await message.answer(f"❌ Ошибка: {e}")
+
+@dp.callback_query(F.data == "admin_reviews")
+async def admin_reviews_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer()
+        return
+    count = sum(len(v) for v in reviews_db.values())
+    text = (
+        f"📝 **Отзывы и репутация**\n\n"
+        f"Всего отзывов: {count}\n"
+        f"На модерации: {len(moderation_queue)}\n\n"
+        f"Функции:\n"
+        f"• ⭐ Просмотр отзывов\n"
+        f"• 🚦 Изменение статуса\n"
+        f"• ⏳ Модерация товаров"
+    )
+    await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+    ]))
 
 # ============ РЕКВИЗИТЫ ============
 
@@ -1269,18 +1398,16 @@ async def paid_callback(call: CallbackQuery):
 @dp.callback_query(F.data == "create_deal")
 async def create_deal_callback(call: CallbackQuery):
     text = (
-        "🤝 **Создать сделку с гарантом**\n\n"
-        "Сделка защищает обе стороны:\n"
-        "• Покупатель платит гаранту\n"
-        "• Продавец передаёт товар/услугу\n"
-        "• Гарант проверяет и переводит деньги\n\n"
-        "Комиссия гаранта: **5%**\n\n"
-        "Выбери тип сделки:"
+        "🤝 **Создать сделку**\n\n"
+        "Выбери тип сделки и способ оплаты:"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎁 NFT / Подарки", callback_data="deal_type_nft")],
         [InlineKeyboardButton(text="🎮 Игры / Аккаунты", callback_data="deal_type_game")],
+        [InlineKeyboardButton(text="🎁 NFT / Подарки", callback_data="deal_type_nft")],
         [InlineKeyboardButton(text="💼 Услуги", callback_data="deal_type_service")],
+        [InlineKeyboardButton(text="💰 Деньги / Р РУБ", callback_data="deal_type_rub")],
+        [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data="deal_type_stars")],
+        [InlineKeyboardButton(text="💎 Крипто (TON/BTC/ETH)", callback_data="deal_type_crypto")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")],
     ])
     await call.message.edit_text(text, reply_markup=kb)
@@ -1289,56 +1416,33 @@ async def create_deal_callback(call: CallbackQuery):
 async def deal_type_callback(call: CallbackQuery):
     user_id = call.from_user.id
     deal_type = call.data.replace("deal_type_", "")
-    temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id}
-    user_states[user_id] = {'action': 'deal_seller_username'}
+    
+    # Определяем валюту в зависимости от типа
+    currency_map = {
+        'game': '₽',
+        'nft': '₽',
+        'service': '₽',
+        'rub': '₽',
+        'stars': '⭐',
+        'crypto': '💎',
+    }
+    currency = currency_map.get(deal_type, '₽')
+    
+    temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id, 'currency': currency}
+    user_states[user_id] = {'action': 'deal_amount'}
+    
+    if deal_type == 'stars':
+        prompt = "⭐ **Введи количество Telegram Stars:**\n\nНапример: `500`"
+    elif deal_type == 'crypto':
+        prompt = "💎 **Введи сумму в крипто:**\n\nТипы: TON, BTC, ETH, USDT\n\nПримеры:\n• `1 TON`\n• `0.01 BTC`\n• `10 USDT`"
+    else:
+        prompt = "💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`"
+    
     await call.message.edit_text(
-        "👤 **Введи username продавца** (например @malik_shop):",
+        prompt,
         reply_markup=back_kb("create_deal")
     )
 
-@dp.message(F.text & (F.text.startswith("@") | F.text.startswith("deal_seller")))
-async def deal_seller_username(message: Message):
-    user_id = message.from_user.id
-    state_data = user_states.get(user_id, {})
-    
-    if state_data.get('action') == 'deal_seller_username':
-        seller_username = message.text.strip().lstrip('@')
-        # Проверяем есть ли такой пользователь
-        seller_found = False
-        seller_id = None
-        for uid, user in users.items():
-            if user.get('username', '').lower() == seller_username.lower():
-                seller_found = True
-                seller_id = uid
-                break
-        
-        if not seller_found:
-            await message.answer(f"❌ Продавец @{seller_username} не найден в системе")
-            return
-        
-        temp_deal_data[user_id]['seller_id'] = seller_id
-        temp_deal_data[user_id]['seller_username'] = seller_username
-        user_states[user_id] = {'action': 'deal_amount'}
-        await message.answer(
-            f"✅ Продавец: @{seller_username}\n\n"
-            f"💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
-            reply_markup=back_kb("create_deal")
-        )
-        return
-
-    # Если это сумма сделки (обычный обработчик)
-    if state_data.get('action') == 'deal_amount':
-        try:
-            amount = int(message.text.replace(' ', '').replace(',', ''))
-            temp_deal_data.setdefault(user_id, {})['amount'] = amount
-            user_states[user_id] = {'action': 'deal_description'}
-            await message.answer(
-                f"💰 Сумма: **{amount}₽**\n\n📝 Опиши что продаётся/покупается:",
-                reply_markup=back_kb("create_deal")
-            )
-        except ValueError:
-            await message.answer("❌ Введи сумму числом, например: `5000`")
-        return
 
     # Описание сделки - БЕЗ ВЫБОРА ПАРТНЕРА
     if state_data.get('action') == 'deal_description':
@@ -1383,10 +1487,11 @@ async def deal_seller_username(message: Message):
         deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
         
         # Сообщение покупателю с ссылкой
+        amount_display = deal_data.get('amount_display', f"{deals[deal_id]['amount']}₽")
         await message.answer(
             f"✅ **Сделка создана!**\n\n"
             f"🆔 Номер: `{deal_id}`\n"
-            f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
+            f"💰 Сумма: {amount_display}\n"
             f"📝 {message.text}\n\n"
             f"📎 **Ссылка на сделку:**\n"
             f"`{deal_link}`\n\n"
@@ -1398,7 +1503,7 @@ async def deal_seller_username(message: Message):
         )
         
         await log_event('deal_created', buyer_id,
-            f"Сделка @{buyer_username} на {deals[deal_id]['amount']}₽")
+            f"Сделка @{buyer_username} на {amount_display}")
         
         # Уведомление админу о ЗАЯВКЕ НА ОПЛАТУ с кнопками
         payment_markup = InlineKeyboardMarkup(inline_keyboard=[
@@ -1651,6 +1756,72 @@ async def handle_text(message: Message, state: FSMContext):
             f"💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
             reply_markup=back_kb("create_deal")
         )
+        return
+
+    # Сумма сделки
+    if action == 'deal_amount':
+        deal_type = temp_deal_data.get(user_id, {}).get('type', 'rub')
+        
+        try:
+            if deal_type == 'crypto':
+                # Парсим крипто: "1 TON", "0.01 BTC", "10 USDT"
+                parts = text.upper().split()
+                if len(parts) < 2:
+                    await message.answer("❌ Неправильный формат. Примеры: `1 TON`, `0.01 BTC`, `10 USDT`")
+                    return
+                amount_str = parts[0]
+                crypto_type = parts[1]
+                amount = float(amount_str)
+                temp_deal_data[user_id]['amount'] = f"{amount} {crypto_type}"
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {crypto_type}"
+            elif deal_type == 'stars':
+                # Парсим звезды (целые числа)
+                amount = int(text.replace(' ', '').replace(',', ''))
+                temp_deal_data[user_id]['amount'] = amount
+                temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐"
+            else:
+                # Рубли (целые числа)
+                amount = int(text.replace(' ', '').replace(',', ''))
+                temp_deal_data[user_id]['amount'] = amount
+                temp_deal_data[user_id]['amount_display'] = f"{amount}₽"
+            
+            user_states[user_id] = {'action': 'deal_description'}
+            display = temp_deal_data[user_id].get('amount_display', text)
+            await message.answer(
+                f"✅ Сумма: **{display}**\n\n📝 Опиши что продаётся/покупается:",
+                reply_markup=back_kb("create_deal")
+            )
+        except ValueError:
+            if deal_type == 'crypto':
+                await message.answer("❌ Неправильный формат крипто. Примеры: `1 TON`, `0.01 BTC`, `10 USDT`")
+            elif deal_type == 'stars':
+                await message.answer("❌ Введи количество звезд числом, например: `500`")
+            else:
+                await message.answer("❌ Введи сумму числом, например: `5000`")
+        return
+
+    # Текст отзыва
+    if action == 'review_text':
+        rating = state_data.get('rating', 5)
+        review_text = message.text[:500]
+        
+        user_id_reviewed = state_data.get('user_id_reviewed', user_id)
+        reviews_db.setdefault(user_id_reviewed, []).append({
+            'author_id': user_id,
+            'author_username': message.from_user.username,
+            'rating': rating,
+            'text': review_text,
+            'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
+        })
+        
+        del user_states[user_id]
+        await message.answer(
+            f"✅ **Отзыв добавлен!**\n\n"
+            f"⭐ Рейтинг: {rating}/5\n"
+            f"📝 {review_text}",
+            reply_markup=back_kb()
+        )
+        await log_event('review_left', user_id, f"@{message.from_user.username} оставил отзыв ({rating}/5)")
         return
 
     # Реквизиты
