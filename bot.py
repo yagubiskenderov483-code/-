@@ -792,6 +792,39 @@ async def cmd_admin(message: Message):
     except:
         await message.answer("👑 **Админ-панель**", reply_markup=admin_keyboard())
 
+@dp.callback_query(F.data.startswith("give_rep_"))
+async def give_reputation_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Только администратор", show_alert=True)
+        return
+    
+    parts = call.data.split("_")
+    rating = int(parts[2])
+    target_id = int(parts[3])
+    
+    # Добавляем отзыв от админа
+    reviews_db.setdefault(target_id, []).append({
+        'author_id': ADMIN_ID,
+        'author_username': 'АДМИНИСТРАТОР',
+        'rating': rating,
+        'text': 'Репутация выдана администратором',
+        'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
+    })
+    
+    # Уведомляем пользователя
+    try:
+        await bot.send_message(
+            target_id,
+            f"⭐ **Репутация выдана!**\n\n"
+            f"Рейтинг: {rating}/5 ⭐\n"
+            f"Спасибо за хорошую работу!"
+        )
+    except:
+        pass
+    
+    await call.answer("✅ Репутация выдана!", show_alert=True)
+    await call.message.edit_text(f"✅ **Репутация {rating}/5 выдана пользователю**", reply_markup=back_kb("admin_panel"))
+
 # ============ УПРАВЛЕНИЕ СДЕЛКАМИ ============
 
 @dp.callback_query(F.data.startswith("join_deal_"))
@@ -852,7 +885,7 @@ async def join_deal_callback(call: CallbackQuery):
         except:
             pass
         
-        await log_event('deal_confirmed', buyer_id, f"К сделке #{deal_id[:6]} присоединился @{deal['seller_username']}")
+        await log_event('deal_confirmed', buyer_id, f"К сделке #{deal_id} присоединился @{deal['seller_username']}")
         
         await call.message.edit_text(
             f"✅ **Вы присоединились к сделке!**\n\n"
@@ -887,7 +920,7 @@ async def confirm_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"✅ **Сделка #{deal_id[:6]} подтверждена!**\n\n"
+            f"✅ **Сделка #{deal_id} подтверждена!**\n\n"
             f"💰 Сумма: {deal['amount']}₽\n"
             f"👤 Продавец: @{deal['seller_username']}\n\n"
             f"Менеджер @{MANAGER_USERNAME} свяжется с вами."
@@ -900,7 +933,7 @@ async def confirm_deal_callback(call: CallbackQuery):
         await bot.send_message(
             seller_id,
             f"✅ **Новая сделка подтверждена!**\n\n"
-            f"🆔 #{deal_id[:6]}\n"
+            f"🆔 #{deal_id}\n"
             f"💰 Сумма: {deal['amount']}₽\n"
             f"👤 Покупатель: @{deal['buyer_username']}\n"
             f"📝 {deal['description']}\n\n"
@@ -909,7 +942,7 @@ async def confirm_deal_callback(call: CallbackQuery):
     except:
         pass
     
-    await log_event('deal_confirmed', buyer_id, f"Сделка #{deal_id[:6]} подтверждена ({deal['amount']}₽)")
+    await log_event('deal_confirmed', buyer_id, f"Сделка #{deal_id} подтверждена ({deal['amount']}₽)")
 
 @dp.callback_query(F.data.startswith("reject_deal_"))
 async def reject_deal_callback(call: CallbackQuery):
@@ -935,7 +968,7 @@ async def reject_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"❌ **Сделка #{deal_id} отклонена**\n\n"
             f"Причина может быть связана с проверкой безопасности.\n"
             f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
         )
@@ -946,14 +979,14 @@ async def reject_deal_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             seller_id,
-            f"❌ **Сделка #{deal_id[:6]} отклонена**\n\n"
+            f"❌ **Сделка #{deal_id} отклонена**\n\n"
             f"Сумма: {deal['amount']}₽\n"
             f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
         )
     except:
         pass
     
-    await log_event('deal_rejected', buyer_id, f"Сделка #{deal_id[:6]} отклонена ({deal['amount']}₽)")
+    await log_event('deal_rejected', buyer_id, f"Сделка #{deal_id} отклонена ({deal['amount']}₽)")
 
 @dp.callback_query(F.data.startswith("deal_details_"))
 async def deal_details_callback(call: CallbackQuery):
@@ -969,7 +1002,7 @@ async def deal_details_callback(call: CallbackQuery):
         return
     
     text = (
-        f"📋 **Детали сделки #{deal_id[:6]}**\n\n"
+        f"📋 **Детали сделки #{deal_id}**\n\n"
         f"🚦 Статус: {deal['status']}\n"
         f"📅 Дата: {deal['created']}\n\n"
         f"👤 Покупатель: @{deal['buyer_username']} (id={deal['buyer_id']})\n"
@@ -1129,13 +1162,9 @@ async def handle_photo(message: Message):
             downloaded_file = await bot.download_file(file_info.file_path)
             
             # Сохраняем как баннер
-            banner_path = '/home/claude/banner.jpg'
+            banner_path = '/tmp/banner.jpg'
             with open(banner_path, 'wb') as f:
-                f.write(downloaded_file.getbuffer())
-            
-            # Обновляем BANNER_PATH
-            import os
-            os.environ['BANNER_PATH'] = banner_path
+                f.write(downloaded_file.getvalue())
             
             await message.answer(
                 f"✅ **Баннер загружен!**\n\n"
@@ -1146,7 +1175,7 @@ async def handle_photo(message: Message):
             del user_states[user_id]
             await log_event('banner_changed', user_id, "Баннер обновлен администратором")
         except Exception as e:
-            await message.answer(f"❌ Ошибка: {e}")
+            await message.answer(f"❌ Ошибка: {str(e)[:100]}")
 
 @dp.callback_query(F.data == "admin_reviews")
 async def admin_reviews_callback(call: CallbackQuery):
@@ -1405,7 +1434,6 @@ async def create_deal_callback(call: CallbackQuery):
         [InlineKeyboardButton(text="🎮 Игры / Аккаунты", callback_data="deal_type_game")],
         [InlineKeyboardButton(text="🎁 NFT / Подарки", callback_data="deal_type_nft")],
         [InlineKeyboardButton(text="💼 Услуги", callback_data="deal_type_service")],
-        [InlineKeyboardButton(text="💰 Деньги / Р РУБ", callback_data="deal_type_rub")],
         [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data="deal_type_stars")],
         [InlineKeyboardButton(text="💎 Крипто (TON/BTC/ETH)", callback_data="deal_type_crypto")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")],
@@ -1488,16 +1516,33 @@ async def deal_type_callback(call: CallbackQuery):
         
         # Сообщение покупателю с ссылкой
         amount_display = deal_data.get('amount_display', f"{deals[deal_id]['amount']}₽")
+        
+        # Определяем реквизиты для передачи денег
+        requisites_text = ""
+        if deal_type == 'crypto':
+            if 'TON' in str(amount_display):
+                requisites_text = f"\n📍 **Отправить TON на:**\n`{TON_WALLET}`"
+            elif 'BTC' in str(amount_display):
+                requisites_text = f"\n📍 **Отправить BTC на:**\n`{TON_WALLET}`"
+            elif 'ETH' in str(amount_display):
+                requisites_text = f"\n📍 **Отправить ETH на:**\n`{USDT_WALLET}`"
+            elif 'USDT' in str(amount_display):
+                requisites_text = f"\n📍 **Отправить USDT на:**\n`{USDT_WALLET}`"
+        elif deal_type == 'stars':
+            requisites_text = f"\n⭐ **Отправить звезды:**\n@{BOT_USERNAME}"
+        
         await message.answer(
             f"✅ **Сделка создана!**\n\n"
             f"🆔 Номер: `{deal_id}`\n"
             f"💰 Сумма: {amount_display}\n"
-            f"📝 {message.text}\n\n"
+            f"📝 {message.text}"
+            f"{requisites_text}\n\n"
             f"📎 **Ссылка на сделку:**\n"
             f"`{deal_link}`\n\n"
-            f"Поделитесь этой ссылкой с вашим партнером.",
+            f"💡 Ссылка скопирована! Отправь её своему партнёру.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
+                [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{deal_id}")],
                 [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
             ])
         )
@@ -1586,7 +1631,7 @@ async def admin_deals_callback(call: CallbackQuery):
         return
     text = f"🤝 **Сделки** ({len(deals)} всего)\n\n"
     for did, d in list(deals.items())[:10]:
-        text += f"• #{did[:6]} — {d.get('type','?')} — {d.get('amount','?')}₽ — {d.get('status','?')}\n"
+        text += f"• #{did} — {d.get('type','?')} — {d.get('amount','?')}₽ — {d.get('status','?')}\n"
     if not deals:
         text += "Сделок пока нет."
     await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -1598,9 +1643,10 @@ async def admin_statuses_callback(call: CallbackQuery):
     if call.from_user.id != ADMIN_ID:
         await call.answer()
         return
-    user_states[call.from_user.id] = {'action': 'admin_set_status_id'}
+    user_states[call.from_user.id] = {'action': 'admin_give_reputation'}
     await call.message.edit_text(
-        "🚦 **Изменить статус пользователя**\n\nВведи ID пользователя:",
+        "⭐ **Выдать репутацию пользователю**\n\n"
+        "Введи ID пользователя или @username:",
         reply_markup=back_kb("admin_panel")
     )
 
@@ -2019,6 +2065,36 @@ async def handle_text(message: Message, state: FSMContext):
             pass
         return
 
+    # Выдача репутации админом
+    if action == 'admin_give_reputation':
+        target_username = text.lstrip('@').lower()
+        target_id = None
+        
+        # Ищем по юзернейму
+        for uid, user in users.items():
+            if user.get('username', '').lower() == target_username:
+                target_id = uid
+                break
+        
+        if not target_id:
+            await message.answer("❌ Пользователь не найден")
+            return
+        
+        # Показываем варианты репутации
+        user_states[user_id] = {'action': 'admin_set_reputation_rating', 'target_id': target_id}
+        await message.answer(
+            f"⭐ **Выдать репутацию @{target_username}**\n\n"
+            f"Выбери количество звезд (1-5):",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⭐", callback_data=f"give_rep_1_{target_id}"),
+                 InlineKeyboardButton(text="⭐⭐", callback_data=f"give_rep_2_{target_id}"),
+                 InlineKeyboardButton(text="⭐⭐⭐", callback_data=f"give_rep_3_{target_id}")],
+                [InlineKeyboardButton(text="⭐⭐⭐⭐", callback_data=f"give_rep_4_{target_id}"),
+                 InlineKeyboardButton(text="⭐⭐⭐⭐⭐", callback_data=f"give_rep_5_{target_id}")],
+            ])
+        )
+        return
+
     # Смена статуса (admin) — шаг 1
     if action == 'admin_set_status_id':
         try:
@@ -2043,6 +2119,16 @@ async def handle_text(message: Message, state: FSMContext):
         else:
             await message.answer(f"❌ Неизвестный статус. Введи: {', '.join(USER_STATUSES.keys())}")
         return
+
+@dp.callback_query(F.data.startswith("copy_link_"))
+async def copy_link_callback(call: CallbackQuery):
+    deal_id = call.data.replace("copy_link_", "")
+    deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
+    
+    await call.answer(
+        f"✅ Ссылка скопирована!\n\n{deal_link}",
+        show_alert=False
+    )
 
 # ============ ЗАЯВКИ НА ОПЛАТУ ============
 
