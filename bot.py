@@ -121,8 +121,10 @@ async def log_event(event_type: str, user_id: int, description: str):
             'payment_confirmed': '✅', 'payment_rejected': '❌'
         }
         emoji = emoji_map.get(event_type, '📝')
-        await bot.send_message(LOG_CHAT_ID, f"{emoji} [{timestamp}] {description}",
-                               message_thread_id=LOG_THREAD_ID)
+        kwargs = {"chat_id": LOG_CHAT_ID, "text": f"{emoji} [{timestamp}] {description}"}
+        if LOG_THREAD_ID:
+            kwargs["message_thread_id"] = int(LOG_THREAD_ID)
+        await bot.send_message(**kwargs)
     except Exception as e:
         print(f"Лог ошибка: {e}")
 
@@ -2171,7 +2173,10 @@ async def handle_text(message: Message, state: FSMContext):
                 thread_id = None
             # Проверяем что можем отправить
             try:
-                await bot.send_message(chat_id, "✅ Логи подключены!", message_thread_id=thread_id)
+                send_kwargs = {"chat_id": chat_id, "text": "✅ Логи подключены!"}
+                if thread_id:
+                    send_kwargs["message_thread_id"] = int(thread_id)
+                await bot.send_message(**send_kwargs)
                 LOG_CHAT_ID = chat_id
                 LOG_THREAD_ID = thread_id
                 save_config({"LOG_CHAT_ID": LOG_CHAT_ID, "LOG_THREAD_ID": LOG_THREAD_ID})
