@@ -970,7 +970,16 @@ async def cmd_start(message: Message, state: FSMContext):
                     f"4️⃣ Нажми «✅ Я оплатил» и пришли txid\n"
                     f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
-            elif deal_type in ['nft', 'nft_username']:
+            elif deal_type == 'nft_username':
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи оплату по реквизитам выше\n"
+                    f"2️⃣ Нажми «✅ Я оплатил»\n"
+                    f"3️⃣ Продавец переведёт юзернейм после подтверждения\n"
+                    f"4️⃣ Передача через Fragment — безопасно\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
+                )
+            elif deal_type == 'nft':
                 how_to = (
                     f"📋 Порядок сделки:\n"
                     f"1️⃣ Переведи оплату по реквизитам выше\n"
@@ -1570,12 +1579,13 @@ async def deal_type_callback(call: CallbackQuery):
 @dp.callback_query(F.data.startswith("cur_"))
 async def currency_callback(call: CallbackQuery):
     user_id = call.from_user.id
-    parts = call.data.split("_", 2)
-    currency = parts[2]
+    # cur_nft_username_AZN → currency = AZN (последняя часть)
+    currency = call.data.rsplit("_", 1)[1]
     deal_type = temp_deal_data.get(user_id, {}).get('type', '')
     temp_deal_data.setdefault(user_id, {})['currency'] = currency
-    temp_deal_data[user_id]['currency_symbol'] = CURRENCY_SYMBOLS.get(currency, currency)
+    # Всегда берём символ из CURRENCY_SYMBOLS по коду валюты
     sym = CURRENCY_SYMBOLS.get(currency, currency)
+    temp_deal_data[user_id]['currency_symbol'] = sym
 
     # После выбора валюты всегда просим сумму/количество
     user_states[user_id] = {'action': 'deal_amount_input'}
@@ -2163,20 +2173,21 @@ async def handle_text(message: Message, state: FSMContext):
     # ── Ввод суммы/количества (после выбора валюты) ───────────────────
     if action == 'deal_amount_input':
         currency = temp_deal_data.get(user_id, {}).get('currency', 'RUB')
-        currency_symbol = temp_deal_data.get(user_id, {}).get('currency_symbol', '₽')
+        # Всегда берём символ напрямую из словаря, не из temp_deal_data
+        sym = CURRENCY_SYMBOLS.get(currency, currency)
         try:
             if currency in CRYPTO_CURRENCIES + ['BNB']:
                 amount = float(text.replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
                 rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency} (≈{rub_equiv}₽)"
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
             else:
                 amount = float(text.replace(' ', '').replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
                 rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency_symbol} (≈{rub_equiv}₽)"
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
 
             deal_data = temp_deal_data[user_id]
             nft_link = deal_data.get('nft_link', '')
