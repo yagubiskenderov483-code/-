@@ -22,12 +22,6 @@ SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "YourSupport")
 SITE_LINK = os.getenv("SITE_LINK", "https://example.com")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "YourBot")
 
-# ============ ЛОГИ — берём из .env ============
-_log_chat_raw = os.getenv("LOG_CHAT_ID", "")
-_log_thread_raw = os.getenv("LOG_THREAD_ID", "")
-LOG_CHAT_ID = int(_log_chat_raw.strip()) if _log_chat_raw.strip() else None
-LOG_THREAD_ID = int(_log_thread_raw.strip()) if _log_thread_raw.strip() and _log_thread_raw.strip() != "0" else None
-
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не задан!")
 
@@ -35,7 +29,30 @@ storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
-BANNER_FILE_ID = None
+import json
+
+CONFIG_FILE = "config.json"
+
+def load_config():
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_config(data: dict):
+    try:
+        existing = load_config()
+        existing.update(data)
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(existing, f)
+    except Exception as e:
+        print(f"Ошибка сохранения конфига: {e}")
+
+_cfg = load_config()
+LOG_CHAT_ID = _cfg.get("LOG_CHAT_ID")
+LOG_THREAD_ID = _cfg.get("LOG_THREAD_ID")
+BANNER_FILE_ID = _cfg.get("BANNER_FILE_ID")
 
 # ============ КУРСЫ ВАЛЮТ (1 RUB = X валюта) ============
 CURRENCY_RATES = {
@@ -711,9 +728,16 @@ def load_products():
 # ============ УНИВЕРСАЛЬНАЯ ОТПРАВКА С БАННЕРОМ ============
 
 async def send_menu(target, text: str, keyboard, is_new_message: bool = False):
+    """
+    Универсальная отправка меню с баннером или без.
+    target — Message или CallbackQuery
+    is_new_message — True при /start, False при callback
+    """
     global BANNER_FILE_ID
+
     if is_new_message:
-        msg = target
+        # Просто отправляем новое сообщение
+        msg = target  # это Message
         if BANNER_FILE_ID:
             try:
                 await msg.answer_photo(photo=BANNER_FILE_ID, caption=text, reply_markup=keyboard)
@@ -723,8 +747,10 @@ async def send_menu(target, text: str, keyboard, is_new_message: bool = False):
                 BANNER_FILE_ID = None
         await msg.answer(text, reply_markup=keyboard)
     else:
+        # Это CallbackQuery
         call = target
         if BANNER_FILE_ID:
+            # Удаляем старое, отправляем новое с фото
             try:
                 await call.message.delete()
             except Exception:
@@ -735,6 +761,7 @@ async def send_menu(target, text: str, keyboard, is_new_message: bool = False):
             except Exception as e:
                 print(f"Баннер ошибка callback: {e}")
                 BANNER_FILE_ID = None
+        # Без баннера — редактируем
         try:
             await call.message.edit_text(text, reply_markup=keyboard)
         except Exception:
@@ -744,6 +771,7 @@ async def send_menu(target, text: str, keyboard, is_new_message: bool = False):
                 pass
 
 async def edit_msg(call: CallbackQuery, text: str, keyboard):
+    """Редактирование с баннером — удаляет старое, шлёт новое с фото"""
     global BANNER_FILE_ID
     if BANNER_FILE_ID:
         try:
@@ -820,6 +848,7 @@ async def cmd_start(message: Message, state: FSMContext):
             description = deal.get('description', '—')
             nft_link = deal.get('nft_link', '')
 
+            # ── Реквизиты по валюте ──────────────────────────────
             if currency == 'TON':
                 pay_block = (
                     f"💎 Оплата в TON\n"
@@ -871,6 +900,7 @@ async def cmd_start(message: Message, state: FSMContext):
                     f"⚠️ Без комментария — перевод не засчитается!"
                 )
 
+            # ── Описание и данные товара ─────────────────────────────
             info_block = ""
             if nft_link:
                 lbl = "👤 Username" if deal_type == 'nft_username' else "🔗 NFT"
@@ -878,6 +908,7 @@ async def cmd_start(message: Message, state: FSMContext):
             if description and description != '—':
                 info_block += f"📝 {description}\n"
 
+            # ── Инструкция по типу ───────────────────────────────────
             type_labels = {
                 'nft': '🎁 NFT / Подарок',
                 'nft_username': '🔗 NFT Username',
@@ -948,6 +979,7 @@ async def cmd_start(message: Message, state: FSMContext):
                 f"{how_to}"
             )
 
+            # Регистрируем второго участника автоматически
             if deal.get('seller_id') is None and user_id != deal['buyer_id']:
                 deal['seller_id'] = user_id
                 deal['seller_username'] = message.from_user.username or str(user_id)
@@ -1034,10 +1066,10 @@ async def cmd_help(message: Message):
 
 @dp.message(Command("getchatid"))
 async def cmd_getchatid(message: Message):
-    text = f"ID чата: <code>{message.chat.id}</code>"
+    text = f"ID чата: {message.chat.id}"
     if message.message_thread_id:
-        text += f"\nID темы: <code>{message.message_thread_id}</code>"
-    await message.answer(text, parse_mode="HTML")
+        text += f"\nID темы: {message.message_thread_id}"
+    await message.answer(text)
 
 # ============ НАЗАД В МЕНЮ ============
 
@@ -1324,6 +1356,7 @@ async def paid_callback(call: CallbackQuery):
     except Exception:
         pass
 
+# Оплата по сделке
 @dp.callback_query(F.data.startswith("deal_paid_"))
 async def deal_paid_callback(call: CallbackQuery):
     req_id = call.data.replace("deal_paid_", "")
@@ -1351,6 +1384,7 @@ async def deal_paid_callback(call: CallbackQuery):
         pass
 
 def _fiat_currency_kb(deal_type: str) -> InlineKeyboardMarkup:
+    """Клавиатура выбора валюты для сделок с фиатом + крипто"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
          InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD"),
@@ -1393,6 +1427,7 @@ async def deal_type_callback(call: CallbackQuery):
                                 'buyer_username': call.from_user.username or str(user_id)}
 
     if deal_type == 'nft':
+        # NFT: шаг 1 — ссылка на NFT-подарок
         user_states[user_id] = {'action': 'deal_nft_link'}
         await edit_msg(call,
             "🎁 Сделка — NFT / Подарок Telegram\n\n"
@@ -1402,6 +1437,7 @@ async def deal_type_callback(call: CallbackQuery):
             back_kb("create_deal")
         )
     elif deal_type == 'nft_username':
+        # NFT Username: шаг 1 — юзернейм
         user_states[user_id] = {'action': 'deal_nft_link'}
         await edit_msg(call,
             "🔗 Сделка — NFT Username (TON)\n\n"
@@ -1411,6 +1447,7 @@ async def deal_type_callback(call: CallbackQuery):
             back_kb("create_deal")
         )
     elif deal_type == 'stars':
+        # Stars: шаг 1 — количество звёзд
         user_states[user_id] = {'action': 'deal_stars_amount'}
         await edit_msg(call,
             "⭐ Сделка — Telegram Stars\n\n"
@@ -1420,6 +1457,7 @@ async def deal_type_callback(call: CallbackQuery):
             back_kb("create_deal")
         )
     elif deal_type == 'crypto':
+        # Крипто: шаг 1 — выбор крипты → потом сумма
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
              InlineKeyboardButton(text="₿ BTC", callback_data=f"cur_{deal_type}_BTC"),
@@ -1436,6 +1474,7 @@ async def deal_type_callback(call: CallbackQuery):
         ])
         await edit_msg(call, "💎 Сделка — Крипто\n\nШаг 1 из 2 — Выбери криптовалюту:", kb)
     elif deal_type == 'service':
+        # Услуги: шаг 1 — описание
         user_states[user_id] = {'action': 'deal_service_desc'}
         await edit_msg(call,
             "💼 Сделка — Услуги\n\n"
@@ -1446,6 +1485,7 @@ async def deal_type_callback(call: CallbackQuery):
             back_kb("create_deal")
         )
     else:
+        # game / goods: шаг 1 — описание, потом валюта, потом сумма
         user_states[user_id] = {'action': 'deal_goods_desc'}
         label = "🎮 Игры / Аккаунты" if deal_type == 'game' else "📦 Товар"
         await edit_msg(call,
@@ -1466,6 +1506,7 @@ async def currency_callback(call: CallbackQuery):
     temp_deal_data[user_id]['currency_symbol'] = CURRENCY_SYMBOLS.get(currency, currency)
     sym = CURRENCY_SYMBOLS.get(currency, currency)
 
+    # После выбора валюты всегда просим сумму/количество
     user_states[user_id] = {'action': 'deal_amount_input'}
 
     if currency in CRYPTO_CURRENCIES + ['BNB']:
@@ -1635,11 +1676,10 @@ async def admin_stats_callback(call: CallbackQuery):
         await call.answer()
         return
     pending_pay = len([r for r in payment_requests.values() if r.get('status') == 'pending'])
-    log_status = f"✅ Активны (чат: {LOG_CHAT_ID}, тема: {LOG_THREAD_ID or 'нет'})" if LOG_CHAT_ID else "❌ Выключены"
     text = (
         f"📊 Статистика\n\nПользователей: {len(users)}\nТоваров: {len(products)}\n"
         f"Сделок: {len(deals)}\nЗаявок (ожидают): {pending_pay}\n"
-        f"Логи: {log_status}\n"
+        f"Логи: {'вкл' if LOG_CHAT_ID else 'выкл'}\n"
         f"Баннер: {'загружен ✅' if BANNER_FILE_ID else 'нет ❌'}"
     )
     await edit_msg(call, text, admin_keyboard())
@@ -1767,6 +1807,7 @@ async def admin_banner_callback(call: CallbackQuery):
     if call.from_user.id != ADMIN_ID:
         await call.answer()
         return
+    # Сразу ставим состояние ожидания фото
     user_states[call.from_user.id] = {'action': 'upload_banner'}
     status = "загружен ✅" if BANNER_FILE_ID else "не загружен ❌"
     text = (
@@ -1786,6 +1827,7 @@ async def delete_banner_callback(call: CallbackQuery):
         await call.answer()
         return
     BANNER_FILE_ID = None
+    save_config({"BANNER_FILE_ID": None})
     user_states.pop(call.from_user.id, None)
     await call.answer("✅ Баннер удалён", show_alert=True)
     await edit_msg(call, "📸 Баннер удалён.", back_kb("admin_panel"))
@@ -1803,6 +1845,7 @@ async def handle_photo(message: Message):
     user_id = message.from_user.id
     if user_states.get(user_id, {}).get('action') == 'upload_banner' and user_id == ADMIN_ID:
         BANNER_FILE_ID = message.photo[-1].file_id
+        save_config({"BANNER_FILE_ID": BANNER_FILE_ID})
         user_states.pop(user_id, None)
         await message.answer(
             f"✅ Баннер загружен!\n\n"
@@ -1810,7 +1853,7 @@ async def handle_photo(message: Message):
             f"Проверь — напиши /start"
         )
 
-# ============ ЛОГИ (только статус, настройка через .env) ============
+# ============ ЛОГИ ============
 
 @dp.callback_query(F.data == "admin_logs")
 async def admin_logs_callback(call: CallbackQuery):
@@ -1818,18 +1861,52 @@ async def admin_logs_callback(call: CallbackQuery):
         await call.answer("❌ Нет доступа", show_alert=True)
         return
     if LOG_CHAT_ID:
-        status = f"✅ Активны\nЧат ID: <code>{LOG_CHAT_ID}</code>\nТема ID: <code>{LOG_THREAD_ID or 'нет'}</code>"
+        status = f"✅ Включены\nЧат: {LOG_CHAT_ID}\nТема (thread_id): {LOG_THREAD_ID or 'не указана'}"
     else:
-        status = "❌ Выключены — LOG_CHAT_ID не задан в .env"
+        status = "❌ Выключены"
     text = (
-        f"📋 Логи\n\n"
-        f"Статус: {status}\n\n"
-        f"Настройка через файл <b>.env</b>:\n"
-        f"<code>LOG_CHAT_ID=-1001234567890</code>\n"
-        f"<code>LOG_THREAD_ID=0</code>  (0 = без темы)\n\n"
-        f"Узнать ID чата: добавь бота в чат и напиши /getchatid"
+        f"📋 Логи — {status}\n\n"
+        f"Как узнать ID темы:\n"
+        f"1. Открой нужную тему в группе\n"
+        f"2. Отправь /getchatid в эту тему\n"
+        f"3. Бот покажет ID чата и ID темы\n\n"
+        f"Формат ввода: ID_чата:ID_темы\n"
+        f"Пример: -1001234567890:123"
     )
-    await edit_msg(call, text, back_kb("admin_panel"))
+    await edit_msg(call, text, InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Установить", callback_data="set_log_chat")],
+        [InlineKeyboardButton(text="❌ Отключить", callback_data="disable_logs")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")],
+    ]))
+
+@dp.callback_query(F.data == "set_log_chat")
+async def set_log_chat_callback(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer()
+        return
+    user_states[call.from_user.id] = {'action': 'set_log_chat_id'}
+    await edit_msg(call,
+        "📋 Установка логов\n\n"
+        "Введи в формате:\n"
+        "<b>ID_чата:ID_темы</b>\n\n"
+        "Примеры:\n"
+        "• С темой: -1001234567890:456\n"
+        "• Без темы: -1001234567890\n\n"
+        "Узнать ID темы — зайди в тему и отправь /getchatid",
+        back_kb("admin_logs")
+    )
+
+@dp.callback_query(F.data == "disable_logs")
+async def disable_logs_callback(call: CallbackQuery):
+    global LOG_CHAT_ID, LOG_THREAD_ID
+    if call.from_user.id != ADMIN_ID:
+        await call.answer()
+        return
+    LOG_CHAT_ID = None
+    LOG_THREAD_ID = None
+    save_config({"LOG_CHAT_ID": None, "LOG_THREAD_ID": None})
+    await call.answer("✅ Логи выключены", show_alert=True)
+    await edit_msg(call, "👑 Админ-панель", admin_keyboard())
 
 # ============ ЗАЯВКИ НА ОПЛАТУ ============
 
@@ -1908,6 +1985,7 @@ async def payment_reject_callback(call: CallbackQuery):
 
 @dp.message(F.text)
 async def handle_text(message: Message, state: FSMContext):
+    global LOG_CHAT_ID, LOG_THREAD_ID
     user_id = message.from_user.id
     state_data = user_states.get(user_id, {})
     action = state_data.get('action')
@@ -1915,6 +1993,7 @@ async def handle_text(message: Message, state: FSMContext):
         return
     text = message.text.strip()
 
+    # ── NFT / NFT Username: шаг 1 — ссылка или юзернейм ─────────────
     if action == 'deal_nft_link':
         temp_deal_data.setdefault(user_id, {})['nft_link'] = text
         deal_type = temp_deal_data[user_id].get('type', 'nft')
@@ -1936,22 +2015,29 @@ async def handle_text(message: Message, state: FSMContext):
         await message.answer(f"{label}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
         return
 
+    # ── Услуги: шаг 1 — описание ─────────────────────────────────────
     if action == 'deal_service_desc':
         temp_deal_data.setdefault(user_id, {})['description'] = text
         deal_type = temp_deal_data[user_id].get('type', 'service')
         user_states[user_id] = {'action': 'waiting_nft_currency'}
         kb = _fiat_currency_kb(deal_type)
-        await message.answer(f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
+        await message.answer(
+            f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb
+        )
         return
 
+    # ── game/goods: шаг 1 — описание ─────────────────────────────────
     if action == 'deal_goods_desc':
         temp_deal_data.setdefault(user_id, {})['description'] = text
         deal_type = temp_deal_data[user_id].get('type', 'goods')
         user_states[user_id] = {'action': 'waiting_nft_currency'}
         kb = _fiat_currency_kb(deal_type)
-        await message.answer(f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
+        await message.answer(
+            f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb
+        )
         return
 
+    # ── Stars: шаг 1 — количество ────────────────────────────────────
     if action == 'deal_stars_amount':
         try:
             amount = int(text.replace(' ', '').replace(',', ''))
@@ -1975,6 +2061,7 @@ async def handle_text(message: Message, state: FSMContext):
             await message.answer("❌ Введи целое число, например: 1000")
         return
 
+    # ── Ввод суммы/количества (после выбора валюты) ───────────────────
     if action == 'deal_amount_input':
         currency = temp_deal_data.get(user_id, {}).get('currency', 'RUB')
         currency_symbol = temp_deal_data.get(user_id, {}).get('currency_symbol', '₽')
@@ -2017,6 +2104,7 @@ async def handle_text(message: Message, state: FSMContext):
             await message.answer("❌ Введи число, например: 5000 или 1.5")
         return
 
+    # ── Старые состояния — редирект ───────────────────────────────────
     if action in ('deal_amount', 'deal_amount_first', 'deal_description_first', 'deal_description'):
         await message.answer("❌ Начни сделку заново.", reply_markup=back_kb("create_deal"))
         return
@@ -2069,6 +2157,42 @@ async def handle_text(message: Message, state: FSMContext):
         user_requisites.setdefault(user_id, {})[field] = text
         del user_states[user_id]
         await message.answer("✅ Реквизиты сохранены!", reply_markup=back_kb("my_requisites"))
+        return
+
+    if action == 'set_log_chat_id':
+        global LOG_CHAT_ID, LOG_THREAD_ID
+        try:
+            if ':' in text:
+                parts = text.strip().split(':', 1)
+                chat_id = int(parts[0])
+                thread_id = int(parts[1])
+            else:
+                chat_id = int(text.strip())
+                thread_id = None
+            # Проверяем что можем отправить
+            try:
+                await bot.send_message(chat_id, "✅ Логи подключены!", message_thread_id=thread_id)
+                LOG_CHAT_ID = chat_id
+                LOG_THREAD_ID = thread_id
+                save_config({"LOG_CHAT_ID": LOG_CHAT_ID, "LOG_THREAD_ID": LOG_THREAD_ID})
+                del user_states[user_id]
+                await message.answer(
+                    f"✅ Логи включены!\n\n"
+                    f"Чат: {LOG_CHAT_ID}\n"
+                    f"Тема: {LOG_THREAD_ID or 'нет (общий чат)'}"
+                )
+            except Exception as e:
+                await message.answer(
+                    f"❌ Не удалось отправить сообщение в чат:\n{e}\n\n"
+                    f"Убедись что бот добавлен в группу и имеет права на отправку сообщений."
+                )
+        except ValueError:
+            await message.answer(
+                "❌ Неверный формат.\n\n"
+                "Введи:\n"
+                "• С темой: -1001234567890:456\n"
+                "• Без темы: -1001234567890"
+            )
         return
 
     if action == 'sell_name':
@@ -2160,9 +2284,7 @@ async def handle_text(message: Message, state: FSMContext):
 
 async def main():
     load_products()
-    log_info = f"Логи: чат {LOG_CHAT_ID}, тема {LOG_THREAD_ID}" if LOG_CHAT_ID else "Логи: выключены (задай LOG_CHAT_ID в .env)"
     print(f"LOLZ MARKET запущен! Товаров: {len(products)}")
-    print(log_info)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
