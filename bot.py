@@ -641,7 +641,12 @@ categories = [
 def generate_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-def get_user_status(user_id):
+def get_text(user_id, key):
+    """Получить текст на языке пользователя"""
+    lang = user_language.get(user_id, 'ru')
+    if lang not in TRANSLATIONS:
+        lang = 'ru'
+    return TRANSLATIONS[lang].get(key, TRANSLATIONS['ru'].get(key, key))
     if user_id not in user_stats:
         user_stats[user_id] = {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'}
     status = user_stats[user_id].get('status', 'new')
@@ -1435,6 +1440,15 @@ async def deal_type_callback(call: CallbackQuery):
              InlineKeyboardButton(text="₿ BTC", callback_data=f"currency_BTC_{deal_type}")],
             [InlineKeyboardButton(text="Ξ ETH", callback_data=f"currency_ETH_{deal_type}"),
              InlineKeyboardButton(text="₮ USDT", callback_data=f"currency_USDT_{deal_type}")],
+            [InlineKeyboardButton(text="DOGE", callback_data=f"currency_DOGE_{deal_type}"),
+             InlineKeyboardButton(text="XRP", callback_data=f"currency_XRP_{deal_type}")],
+            [InlineKeyboardButton(text="LTC", callback_data=f"currency_LTC_{deal_type}"),
+             InlineKeyboardButton(text="ADA", callback_data=f"currency_ADA_{deal_type}")],
+            [InlineKeyboardButton(text="₽ Рубли", callback_data=f"currency_RUB_{deal_type}"),
+             InlineKeyboardButton(text="$ Доллары", callback_data=f"currency_USD_{deal_type}")],
+            [InlineKeyboardButton(text="€ Евро", callback_data=f"currency_EUR_{deal_type}"),
+             InlineKeyboardButton(text="£ Фунты", callback_data=f"currency_GBP_{deal_type}")],
+            [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data=f"currency_STARS_{deal_type}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
         ])
     elif deal_type == 'stars':
