@@ -934,31 +934,49 @@ async def cmd_start(message: Message, state: FSMContext):
             }
             type_label = type_labels.get(deal_type, deal_type)
 
-            if deal_type in ['nft', 'nft_username']:
+            if currency == 'TON':
                 how_to = (
                     f"📋 Порядок сделки:\n"
-                    f"1️⃣ Переведи оплату по реквизитам выше\n"
-                    f"2️⃣ Нажми кнопку «✅ Я оплатил»\n"
-                    f"3️⃣ Продавец получит уведомление\n"
-                    f"4️⃣ После подтверждения — NFT передаётся тебе\n"
-                    f"🛡 Гарант сделки: @{MANAGER_USERNAME}"
-                )
-            elif deal_type == 'crypto':
-                how_to = (
-                    f"📋 Порядок сделки:\n"
-                    f"1️⃣ Переведи крипту по адресу выше\n"
-                    f"2️⃣ Скопируй хэш (txid) транзакции\n"
-                    f"3️⃣ Нажми «✅ Я оплатил» и пришли хэш менеджеру\n"
+                    f"1️⃣ Скопируй TON-кошелёк выше\n"
+                    f"2️⃣ Переведи точную сумму {amount_display}\n"
+                    f"3️⃣ Нажми «✅ Я оплатил»\n"
                     f"4️⃣ После подтверждения — продавец передаёт товар\n"
                     f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
-            elif deal_type == 'stars':
+            elif currency in ['USDT', 'USDC']:
                 how_to = (
                     f"📋 Порядок сделки:\n"
-                    f"1️⃣ Открой бота @{BOT_USERNAME}\n"
+                    f"1️⃣ Скопируй адрес {currency} (TRC20) выше\n"
+                    f"2️⃣ Переведи точную сумму {amount_display}\n"
+                    f"3️⃣ Нажми «✅ Я оплатил»\n"
+                    f"⚠️ Только сеть TRC20!\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
+                )
+            elif currency == 'STARS':
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Открой бота @{BOT_USERNAME} в Telegram\n"
                     f"2️⃣ Нажми на профиль → ⭐ Подарить Stars\n"
-                    f"3️⃣ Отправь нужное количество\n"
+                    f"3️⃣ Отправь {amount_display}\n"
                     f"4️⃣ Нажми «✅ Я оплатил»\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
+                )
+            elif currency in CRYPTO_CURRENCIES:
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Напиши менеджеру @{MANAGER_USERNAME} — получи адрес {currency}\n"
+                    f"2️⃣ Переведи {amount_display}\n"
+                    f"3️⃣ Скопируй txid (хэш) транзакции\n"
+                    f"4️⃣ Нажми «✅ Я оплатил» и пришли txid\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
+                )
+            elif deal_type in ['nft', 'nft_username']:
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи оплату по реквизитам выше\n"
+                    f"2️⃣ Нажми «✅ Я оплатил»\n"
+                    f"3️⃣ Продавец получит уведомление\n"
+                    f"4️⃣ После подтверждения — NFT передаётся тебе\n"
                     f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
             elif deal_type == 'service':
