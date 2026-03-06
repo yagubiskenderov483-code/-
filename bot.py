@@ -775,22 +775,9 @@ async def cmd_start(message: Message, state: FSMContext):
 @dp.message(Command("admin"))
 async def cmd_admin(message: Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Нет доступа")
+        await message.answer("Нет доступа")
         return
-    
-    # Отправляем баннер с админ-панелью
-    try:
-        if BANNER_PATH and os.path.exists(BANNER_PATH):
-            with open(BANNER_PATH, 'rb') as banner:
-                await message.answer_photo(
-                    photo=banner,
-                    caption="👑 ||АДМИН-ПАНЕЛЬ||",
-                    reply_markup=admin_keyboard()
-                )
-        else:
-            await message.answer("👑 ||Админ-панель||", reply_markup=admin_keyboard())
-    except:
-        await message.answer("👑 ||Админ-панель||", reply_markup=admin_keyboard())
+    await message.answer("👑 Админ-панель", reply_markup=admin_keyboard())
 
 @dp.callback_query(F.data.startswith("give_rep_"))
 async def give_reputation_callback(call: CallbackQuery):
@@ -1269,7 +1256,7 @@ async def catalog_callback(call: CallbackQuery):
     for cat in categories:
         buttons.append([InlineKeyboardButton(text=cat["name"], callback_data=f"cat_{cat['id']}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")])
-    await call.message.edit_text("🛒 **Каталог** — выбери категорию:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await call.message.edit_text("🛒 Каталог — выбери категорию:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 @dp.callback_query(F.data.startswith("cat_"))
 async def category_callback(call: CallbackQuery):
@@ -1307,7 +1294,7 @@ async def subcategory_callback(call: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"cat_{cat_id}")])
 
     await call.message.edit_text(
-        f"📦 **{sub['name']}**\n\nВыбери товар:",
+        f"📦 {sub['name']}\n\nВыбери товар:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
     )
 
@@ -1319,9 +1306,9 @@ async def product_callback(call: CallbackQuery):
         await call.answer("Товар не найден")
         return
     text = (
-        f"📦 **{p['name']}**\n\n"
+        f"📦 {p['name']}\n\n"
         f"📝 {p['description']}\n\n"
-        f"💰 Цена: **{p['price']}₽**\n"
+        f"💰 Цена: {p['price']}₽\n"
         f"📊 В наличии: {p['stock']} шт."
     )
     # Найти индексы для кнопки Назад
@@ -1346,8 +1333,8 @@ async def buy_callback(call: CallbackQuery):
         await call.answer()
         return
     text = (
-        f"🛒 **Покупка: {p['name']}**\n\n"
-        f"💰 Сумма: **{p['price']}₽**\n\n"
+        f"🛒 Покупка: {p['name']}\n\n"
+        f"💰 Сумма: {p['price']}₽\n\n"
         "Выбери способ оплаты:"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1368,16 +1355,16 @@ async def pay_callback(call: CallbackQuery):
         await call.answer()
         return
     if method == "card":
-        details = f"💳 **Карта / СБП:**\n`{MANAGER_CARD}`"
+        details = f"💳 Карта / СБП:\n`{MANAGER_CARD}`"
     elif method == "ton":
-        details = f"💎 **TON кошелёк:**\n`{TON_WALLET}`"
+        details = f"💎 TON кошелёк:\n`{TON_WALLET}`"
     else:
-        details = f"💵 **USDT (TRC20):**\n`{USDT_WALLET}`"
+        details = f"💵 USDT (TRC20):\n`{USDT_WALLET}`"
     text = (
-        f"💰 **Оплата: {p['name']}**\n\n"
-        f"Сумма: **{p['price']}₽**\n\n"
+        f"💰 Оплата: {p['name']}\n\n"
+        f"Сумма: {p['price']}₽\n\n"
         f"{details}\n\n"
-        f"После оплаты нажми **«Оплатил»** и дождись подтверждения.\n"
+        f"После оплаты нажми «Оплатил» и дождись подтверждения.\n"
         f"По вопросам: @{MANAGER_USERNAME}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1395,7 +1382,7 @@ async def paid_callback(call: CallbackQuery):
     user_id = call.from_user.id
     username = call.from_user.username or str(user_id)
     await call.message.edit_text(
-        f"⏳ **Заявка отправлена!**\n\n"
+        f"⏳ Заявка отправлена!\n\n"
         f"Менеджер @{MANAGER_USERNAME} проверит оплату и свяжется с тобой.\n"
         "Обычно это занимает до 15 минут.",
         reply_markup=back_kb()
@@ -1405,7 +1392,7 @@ async def paid_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             ADMIN_ID,
-            f"🛒 **Новая покупка!**\n\n"
+            f"🛒 Новая покупка!\n\n"
             f"👤 @{username} (id={user_id})\n"
             f"📦 {p['name']}\n"
             f"💰 {p['price']}₽\n"
@@ -1419,7 +1406,7 @@ async def paid_callback(call: CallbackQuery):
 @dp.callback_query(F.data == "create_deal")
 async def create_deal_callback(call: CallbackQuery):
     text = (
-        "🤝 **Создать сделку**\n\n"
+        "🤝 Создать сделку\n\n"
         "Выбери тип сделки и способ оплаты:"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1440,7 +1427,7 @@ async def deal_type_callback(call: CallbackQuery):
     temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id}
     
     # Выбор валюты
-    text = "💱 **Выбери валюту для сделки:**"
+    text = "💱 Выбери валюту для сделки:"
     
     if deal_type == 'crypto':
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1490,11 +1477,11 @@ async def currency_callback(call: CallbackQuery):
     
     # Подсказка для ввода суммы
     if currency in ['TON', 'BTC', 'ETH', 'USDT']:
-        prompt = f"💰 **Введи сумму в {currency}:**\n\nПримеры: `1 TON`, `0.01 BTC`, `10 USDT`"
+        prompt = f"💰 Введи сумму в {currency}:\n\nПримеры: `1 TON`, `0.01 BTC`, `10 USDT`"
     elif currency == 'STARS':
-        prompt = f"⭐ **Введи количество Telegram Stars:**\n\nПримеры: `500`, `1000`"
+        prompt = f"⭐ Введи количество Telegram Stars:\n\nПримеры: `500`, `1000`"
     else:
-        prompt = f"💰 **Введи сумму в {currency_symbols.get(currency, currency)}:**\n\nПримеры: `5000`, `1000`"
+        prompt = f"💰 Введи сумму в {currency_symbols.get(currency, currency)}:\n\nПримеры: `5000`, `1000`"
     
     await call.message.edit_text(prompt, reply_markup=back_kb("create_deal"))
 
@@ -1548,15 +1535,15 @@ async def currency_callback(call: CallbackQuery):
         requisites_text = ""
         if deal_type == 'crypto':
             if 'TON' in str(amount_display):
-                requisites_text = f"\n📍 **Отправить TON на:**\n`{TON_WALLET}`"
+                requisites_text = f"\n📍 Отправить TON на:\n`{TON_WALLET}`"
             elif 'BTC' in str(amount_display):
-                requisites_text = f"\n📍 **Отправить BTC на:**\n`{TON_WALLET}`"
+                requisites_text = f"\n📍 Отправить BTC на:\n`{TON_WALLET}`"
             elif 'ETH' in str(amount_display):
-                requisites_text = f"\n📍 **Отправить ETH на:**\n`{USDT_WALLET}`"
+                requisites_text = f"\n📍 Отправить ETH на:\n`{USDT_WALLET}`"
             elif 'USDT' in str(amount_display):
-                requisites_text = f"\n📍 **Отправить USDT на:**\n`{USDT_WALLET}`"
+                requisites_text = f"\n📍 Отправить USDT на:\n`{USDT_WALLET}`"
         elif deal_type == 'stars':
-            requisites_text = f"\n⭐ **Отправить звезды:**\n@{BOT_USERNAME}"
+            requisites_text = f"\n⭐ Отправить звезды:\n@{BOT_USERNAME}"
         
         deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}" if BOT_USERNAME else f"tg://user?id={ADMIN_ID}"
         
@@ -1565,9 +1552,10 @@ async def currency_callback(call: CallbackQuery):
             f"🆔 Номер: {deal_id}\n"
             f"💰 Сумма: {amount_display}\n"
             f"📝 {message.text}"
-            f"{requisites_text}",
+            f"{requisites_text}\n\n"
+            f"🔗 Ссылка:\n{deal_link}",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔗 Присоединиться", url=deal_link)],
+                [InlineKeyboardButton(text="🔗 Открыть сделку", url=deal_link)],
                 [InlineKeyboardButton(text="📋 Детали", callback_data=f"deal_details_{deal_id}")],
                 [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
             ])
@@ -1585,7 +1573,7 @@ async def currency_callback(call: CallbackQuery):
         try:
             await bot.send_message(
                 ADMIN_ID,
-                f"💰 **ЗАЯВКА НА ОПЛАТУ**\n\n"
+                f"💰 ЗАЯВКА НА ОПЛАТУ\n\n"
                 f"🆔 {payment_req_id}\n"
                 f"👤 Пользователь: @{buyer_username} (id={buyer_id})\n"
                 f"💵 Сумма: {deals[deal_id]['amount']}₽\n"
@@ -1606,7 +1594,7 @@ async def sell_product_callback(call: CallbackQuery):
     user_id = call.from_user.id
     user_states[user_id] = {'action': 'sell_name'}
     await call.message.edit_text(
-        "📤 **Продать товар**\n\nВведи название товара:",
+        "📤 Продать товар\n\nВведи название товара:",
         reply_markup=back_kb()
     )
 
@@ -1617,7 +1605,7 @@ async def admin_panel_callback(call: CallbackQuery):
     if call.from_user.id != ADMIN_ID:
         await call.answer("❌ Нет доступа", show_alert=True)
         return
-    await call.message.edit_text("👑 **Админ-панель**", reply_markup=admin_keyboard())
+    await call.message.edit_text("👑 Админ-панель", reply_markup=admin_keyboard())
 
 @dp.callback_query(F.data == "admin_stats")
 async def admin_stats_callback(call: CallbackQuery):
@@ -1627,7 +1615,7 @@ async def admin_stats_callback(call: CallbackQuery):
     active = len([d for d in deals.values() if d.get('status') == 'active'])
     log_status = f"включены (чат {LOG_CHAT_ID}, тема {LOG_THREAD_ID})" if LOG_CHAT_ID else "отключены"
     text = (
-        f"📊 **Статистика**\n\n"
+        f"📊 Статистика\n\n"
         f"👥 Пользователей: {len(users)}\n"
         f"📦 Товаров: {len(products)}\n"
         f"🤝 Всего сделок: {len(deals)}\n"
@@ -1641,7 +1629,7 @@ async def admin_users_callback(call: CallbackQuery):
     if call.from_user.id != ADMIN_ID:
         await call.answer()
         return
-    text = f"👥 **Пользователи** ({len(users)} чел.)\n\n"
+    text = f"👥 Пользователи ({len(users)} чел.)\n\n"
     for uid, u in list(users.items())[:15]:
         stats = user_stats.get(uid, {})
         status = USER_STATUSES.get(stats.get('status', 'new'), {}).get('name_ru', '🟢 Новичок')
@@ -1655,7 +1643,7 @@ async def admin_deals_callback(call: CallbackQuery):
     if call.from_user.id != ADMIN_ID:
         await call.answer()
         return
-    text = f"🤝 **Сделки** ({len(deals)} всего)\n\n"
+    text = f"🤝 Сделки ({len(deals)} всего)\n\n"
     for did, d in list(deals.items())[:10]:
         text += f"• #{did} — {d.get('type','?')} — {d.get('amount','?')}₽ — {d.get('status','?')}\n"
     if not deals:
@@ -1671,7 +1659,7 @@ async def admin_statuses_callback(call: CallbackQuery):
         return
     user_states[call.from_user.id] = {'action': 'admin_give_reputation'}
     await call.message.edit_text(
-        "⭐ **Выдать репутацию пользователю**\n\n"
+        "⭐ Выдать репутацию пользователю\n\n"
         "Введи ID пользователя или @username:",
         reply_markup=back_kb("admin_panel")
     )
@@ -1682,7 +1670,7 @@ async def admin_reviews_callback(call: CallbackQuery):
         await call.answer()
         return
     count = sum(len(v) for v in reviews_db.values())
-    text = f"📝 **Отзывы**\n\nВсего: {count}\nНа модерации: {len(moderation_queue)}"
+    text = f"📝 Отзывы\n\nВсего: {count}\nНа модерации: {len(moderation_queue)}"
     await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
     ]))
@@ -1699,7 +1687,7 @@ async def admin_moderation_callback(call: CallbackQuery):
         return
     item = moderation_queue[0]
     text = (
-        f"⏳ **Модерация** ({len(moderation_queue)} в очереди)\n\n"
+        f"⏳ Модерация ({len(moderation_queue)} в очереди)\n\n"
         f"👤 @{item.get('username','?')}\n"
         f"📦 {item.get('name','?')}\n"
         f"💰 {item.get('price','?')}₽\n"
@@ -1731,7 +1719,7 @@ async def mod_action_callback(call: CallbackQuery):
                 f"Товар одобрен: {item['name']} за {item['price']}₽")
         else:
             await call.answer("❌ Отклонено", show_alert=True)
-    await call.message.edit_text("👑 **Админ-панель**", reply_markup=admin_keyboard())
+    await call.message.edit_text("👑 Админ-панель", reply_markup=admin_keyboard())
 
 @dp.callback_query(F.data == "admin_products")
 async def admin_products_callback(call: CallbackQuery):
@@ -1742,7 +1730,7 @@ async def admin_products_callback(call: CallbackQuery):
     for p in products.values():
         cn = p.get('category_name', '?')
         cat_counts[cn] = cat_counts.get(cn, 0) + 1
-    text = f"📦 **Товары** ({len(products)} шт.)\n\n"
+    text = f"📦 Товары ({len(products)} шт.)\n\n"
     for cn, cnt in cat_counts.items():
         text += f"• {cn}: {cnt} шт.\n"
     await call.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -1758,9 +1746,9 @@ async def admin_logs_callback(call: CallbackQuery):
         return
     if LOG_CHAT_ID:
         thread_info = f"\n📌 Тема: `{LOG_THREAD_ID}`" if LOG_THREAD_ID else "\n_(тема не задана — пишет в общий чат)_"
-        text = f"📋 **Логирование включено**\n\n📍 Чат: `{LOG_CHAT_ID}`{thread_info}"
+        text = f"📋 Логирование включено\n\n📍 Чат: `{LOG_CHAT_ID}`{thread_info}"
     else:
-        text = "📋 **Логирование отключено**"
+        text = "📋 Логирование отключено"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Установить чат / тему", callback_data="set_log_chat")],
         [InlineKeyboardButton(text="❌ Отключить логи", callback_data="disable_logs")],
@@ -1775,9 +1763,9 @@ async def set_log_chat_callback(call: CallbackQuery):
         return
     user_states[call.from_user.id] = {'action': 'set_log_chat_id'}
     await call.message.edit_text(
-        "📍 **Шаг 1 из 2 — ID чата (группы)**\n\n"
+        "📍 Шаг 1 из 2 — ID чата (группы)\n\n"
         "Напиши /getchatid прямо в нужной теме — бот покажет оба ID.\n\n"
-        "Введи **ID чата** (число со знаком минус, например `-1001234567890`):",
+        "Введи ID чата (число со знаком минус, например `-1001234567890`):",
         reply_markup=back_kb("admin_logs")
     )
 
@@ -1790,7 +1778,7 @@ async def disable_logs_callback(call: CallbackQuery):
     LOG_CHAT_ID = None
     LOG_THREAD_ID = None
     await call.answer("✅ Логирование отключено", show_alert=True)
-    await call.message.edit_text("👑 **Админ-панель**", reply_markup=admin_keyboard())
+    await call.message.edit_text("👑 Админ-панель", reply_markup=admin_keyboard())
 
 # ============ ОБРАБОТКА ТЕКСТА ============
 
@@ -1825,7 +1813,7 @@ async def handle_text(message: Message, state: FSMContext):
         user_states[user_id] = {'action': 'deal_amount'}
         await message.answer(
             f"✅ Продавец: @{seller_username}\n\n"
-            f"💰 **Введи сумму сделки (в рублях):**\n\nНапример: `5000`",
+            f"💰 Введи сумму сделки (в рублях):\n\nНапример: `5000`",
             reply_markup=back_kb("create_deal")
         )
         return
@@ -1861,7 +1849,7 @@ async def handle_text(message: Message, state: FSMContext):
             user_states[user_id] = {'action': 'deal_description'}
             display = temp_deal_data[user_id].get('amount_display', text)
             await message.answer(
-                f"✅ Сумма: **{display}**\n\n📝 Опиши что продаётся/покупается:",
+                f"✅ Сумма: {display}\n\n📝 Опиши что продаётся/покупается:",
                 reply_markup=back_kb("create_deal")
             )
         except ValueError:
@@ -1913,7 +1901,7 @@ async def handle_text(message: Message, state: FSMContext):
         ])
         
         await message.answer(
-            f"⭐ **Оцени @{target_username} (выбери количество звезд):**",
+            f"⭐ Оцени @{target_username} (выбери количество звезд):",
             reply_markup=kb
         )
         return
@@ -1937,7 +1925,7 @@ async def handle_text(message: Message, state: FSMContext):
         target_username = target_user.get('username', f"id{target_id}")
         
         await message.answer(
-            f"✅ **Отзыв добавлен!**\n\n"
+            f"✅ Отзыв добавлен!\n\n"
             f"👤 Для: @{target_username}\n"
             f"⭐ Рейтинг: {rating}/5\n"
             f"📝 {review_text}",
@@ -1962,7 +1950,7 @@ async def handle_text(message: Message, state: FSMContext):
             user_states[user_id] = {'action': 'set_log_thread_id'}
             await message.answer(
                 f"✅ Чат сохранён: `{LOG_CHAT_ID}`\n\n"
-                "**Шаг 2 из 2 — ID темы**\n\n"
+                "Шаг 2 из 2 — ID темы\n\n"
                 "Введи ID темы (число), или `0` если логи нужны в общий чат без темы:"
             )
         except ValueError:
@@ -1976,11 +1964,11 @@ async def handle_text(message: Message, state: FSMContext):
             del user_states[user_id]
             try:
                 await bot.send_message(
-                    LOG_CHAT_ID, "✅ **Логирование активировано!** Буду писать сюда.",
+                    LOG_CHAT_ID, "✅ Логирование активировано! Буду писать сюда.",
                     parse_mode="Markdown", message_thread_id=LOG_THREAD_ID
                 )
                 await message.answer(
-                    f"✅ **Готово!**\n\n"
+                    f"✅ Готово!\n\n"
                     f"📍 Чат: `{LOG_CHAT_ID}`\n"
                     f"📌 Тема: `{LOG_THREAD_ID or 'нет (общий чат)'}`"
                 )
@@ -2005,7 +1993,7 @@ async def handle_text(message: Message, state: FSMContext):
             temp_deal_data.setdefault(user_id, {})['amount'] = amount
             user_states[user_id] = {'action': 'deal_description'}
             await message.answer(
-                f"💰 Сумма: **{amount}₽**\n\n📝 Опиши что продаётся/покупается:",
+                f"💰 Сумма: {amount}₽\n\n📝 Опиши что продаётся/покупается:",
                 reply_markup=back_kb("create_deal")
             )
         except ValueError:
@@ -2043,13 +2031,13 @@ async def handle_text(message: Message, state: FSMContext):
         deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
         
         await message.answer(
-            f"✅ **Сделка создана!**\n\n"
+            f"✅ Сделка создана!\n\n"
             f"🆔 ID: `{deal_id}`\n"
             f"👤 Покупатель: @{buyer_username} (вы)\n"
             f"👤 Продавец: @{seller_username}\n"
             f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
             f"📝 {text}\n\n"
-            f"🔗 **Ссылка на сделку:**\n`{deal_link}`\n\n"
+            f"🔗 Ссылка на сделку:\n`{deal_link}`\n\n"
             f"Отправьте эту ссылку другому человеку, чтобы он присоединился!",
             reply_markup=back_kb()
         )
@@ -2060,12 +2048,12 @@ async def handle_text(message: Message, state: FSMContext):
         try:
             await bot.send_message(
                 seller_id,
-                f"🤝 **На вас создали новую сделку!**\n\n"
+                f"🤝 На вас создали новую сделку!\n\n"
                 f"🆔 ID: `{deal_id}`\n"
                 f"👤 Покупатель: @{buyer_username}\n"
                 f"💰 Сумма: {deals[deal_id]['amount']}₽\n"
                 f"📝 {text}\n\n"
-                f"🔗 **Ссылка на сделку:**\n[Открыть сделку](https://t.me/{BOT_USERNAME}?start=deal_{deal_id})\n\n"
+                f"🔗 Ссылка на сделку:\n[Открыть сделку](https://t.me/{BOT_USERNAME}?start=deal_{deal_id})\n\n"
                 f"Нажмите на ссылку чтобы присоединиться к сделке!",
                 parse_mode="Markdown"
             )
@@ -2081,7 +2069,7 @@ async def handle_text(message: Message, state: FSMContext):
         
         try:
             await bot.send_message(ADMIN_ID,
-                f"🤝 **Новая сделка!**\n\n"
+                f"🤝 Новая сделка!\n\n"
                 f"🆔 `{deal_id}`\n"
                 f"👤 Покупатель: @{buyer_username} (id={buyer_id})\n"
                 f"👤 Продавец: @{seller_username} (id={seller_id})\n"
@@ -2122,7 +2110,7 @@ async def handle_text(message: Message, state: FSMContext):
         temp_deal_data.pop(user_id, None)
         del user_states[user_id]
         await message.answer(
-            f"✅ **Товар отправлен на модерацию!**\n\n"
+            f"✅ Товар отправлен на модерацию!\n\n"
             f"📦 {sell_data['name']}\n"
             f"💰 {sell_data['price']}₽\n\n"
             "Ждите одобрения администратором.",
@@ -2132,7 +2120,7 @@ async def handle_text(message: Message, state: FSMContext):
             f"@{sell_data['username']} отправил на модерацию: {sell_data['name']} за {sell_data['price']}₽")
         try:
             await bot.send_message(ADMIN_ID,
-                f"⏳ **Товар на модерации!**\n\n"
+                f"⏳ Товар на модерации!\n\n"
                 f"👤 @{sell_data['username']}\n"
                 f"📦 {sell_data['name']}\n"
                 f"💰 {sell_data['price']}₽\n"
@@ -2171,7 +2159,7 @@ async def handle_text(message: Message, state: FSMContext):
         # Показываем варианты репутации
         user_states[user_id] = {'action': 'admin_set_reputation_rating', 'target_id': target_id}
         await message.answer(
-            f"⭐ **Выдать репутацию @{target_username}**\n\n"
+            f"⭐ Выдать репутацию @{target_username}\n\n"
             f"Выбери количество звезд (1-5):",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="⭐", callback_data=f"give_rep_1_{target_id}"),
@@ -2228,7 +2216,7 @@ async def admin_payments_callback(call: CallbackQuery):
         return
     
     pending = [r for r in payment_requests.values() if r.get('status') == 'pending']
-    text = f"💰 **Заявки на оплату** ({len(pending)} ожидают)\n\n"
+    text = f"💰 Заявки на оплату ({len(pending)} ожидают)\n\n"
     
     if not pending:
         text += "✅ Нет ожидающих заявок"
@@ -2240,7 +2228,7 @@ async def admin_payments_callback(call: CallbackQuery):
     # Показываем первую заявку
     req = pending[0]
     text = (
-        f"💰 **Заявка на оплату**\n\n"
+        f"💰 Заявка на оплату\n\n"
         f"🆔 {req['id']}\n"
         f"👤 @{req['buyer_username']} (id={req['buyer_id']})\n"
         f"💵 Сумма: {req['amount']}₽\n"
@@ -2274,7 +2262,7 @@ async def payment_confirm_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"✅ **ОПЛАТА ПОДТВЕРЖДЕНА!**\n\n"
+            f"✅ ОПЛАТА ПОДТВЕРЖДЕНА!\n\n"
             f"💰 Сумма: {amount}₽\n"
             f"Спасибо за оплату! Менеджер свяжется с вами вскоре.",
             reply_markup=back_kb()
@@ -2283,7 +2271,7 @@ async def payment_confirm_callback(call: CallbackQuery):
         pass
     
     await call.answer("✅ Оплата подтверждена!", show_alert=True)
-    await call.message.edit_text("✅ **Оплата подтверждена**", reply_markup=back_kb("admin_payments"))
+    await call.message.edit_text("✅ Оплата подтверждена", reply_markup=back_kb("admin_payments"))
 
 @dp.callback_query(F.data.startswith("payment_reject_"))
 async def payment_reject_callback(call: CallbackQuery):
@@ -2302,14 +2290,14 @@ async def payment_reject_callback(call: CallbackQuery):
     try:
         await bot.send_message(
             buyer_id,
-            f"❌ **ОПЛАТА ОТКЛОНЕНА**\n\n"
+            f"❌ ОПЛАТА ОТКЛОНЕНА\n\n"
             f"Свяжитесь с менеджером @{MANAGER_USERNAME} для уточнений."
         )
     except:
         pass
     
     await call.answer("❌ Оплата отклонена!", show_alert=True)
-    await call.message.edit_text("❌ **Оплата отклонена**", reply_markup=back_kb("admin_payments"))
+    await call.message.edit_text("❌ Оплата отклонена", reply_markup=back_kb("admin_payments"))
 
 # ============ ЗАПУСК ============
 
