@@ -53,6 +53,7 @@ _cfg = load_config()
 LOG_CHAT_ID = _cfg.get("LOG_CHAT_ID")
 LOG_THREAD_ID = _cfg.get("LOG_THREAD_ID")
 BANNER_FILE_ID = _cfg.get("BANNER_FILE_ID")
+LOG_HIDE_USER = _cfg.get("LOG_HIDE_USER", False)  # скрывать юзернейм/ID в логах
 
 # ============ КУРСЫ ВАЛЮТ (1 RUB = X валюта) ============
 CURRENCY_RATES = {
@@ -121,7 +122,18 @@ async def log_event(event_type: str, user_id: int, description: str):
             'payment_confirmed': '✅', 'payment_rejected': '❌'
         }
         emoji = emoji_map.get(event_type, '📝')
-        kwargs = {"chat_id": LOG_CHAT_ID, "text": f"{emoji} [{timestamp}] {description}"}
+
+        if LOG_HIDE_USER:
+            # Маскируем юзернейм @xxx и числовые ID в тексте
+            import re
+            masked = re.sub(r'@\w+', '@***', description)
+            masked = re.sub(r'\bid=\d+\b', 'id=***', masked)
+            masked = re.sub(r'\(id\d+\)', '(***)', masked)
+            log_text = f"{emoji} [{timestamp}] {masked}"
+        else:
+            log_text = f"{emoji} [{timestamp}] {description}"
+
+        kwargs = {"chat_id": int(LOG_CHAT_ID), "text": log_text}
         if LOG_THREAD_ID:
             kwargs["message_thread_id"] = int(LOG_THREAD_ID)
         await bot.send_message(**kwargs)
@@ -1905,17 +1917,16 @@ async def admin_logs_callback(call: CallbackQuery):
         status = f"✅ Включены\nЧат: {LOG_CHAT_ID}\nТема (thread_id): {LOG_THREAD_ID or 'не указана'}"
     else:
         status = "❌ Выключены"
+    hide_label = "👁 Показывать юзеров: ВКЛ" if not LOG_HIDE_USER else "🙈 Показывать юзеров: ВЫКЛ"
     text = (
         f"📋 Логи — {status}\n\n"
-        f"Как узнать ID темы:\n"
-        f"1. Открой нужную тему в группе\n"
-        f"2. Отправь /getchatid в эту тему\n"
-        f"3. Бот покажет ID чата и ID темы\n\n"
+        f"Скрытие юзернеймов/ID: {'🙈 включено' if LOG_HIDE_USER else '👁 выключено'}\n\n"
         f"Формат ввода: ID_чата:ID_темы\n"
         f"Пример: -1001234567890:123"
     )
     await edit_msg(call, text, InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Установить", callback_data="set_log_chat")],
+        [InlineKeyboardButton(text=hide_label, callback_data="toggle_log_hide_user")],
         [InlineKeyboardButton(text="❌ Отключить", callback_data="disable_logs")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")],
     ]))
@@ -1936,6 +1947,35 @@ async def set_log_chat_callback(call: CallbackQuery):
         "Узнать ID темы — зайди в тему и отправь /getchatid",
         back_kb("admin_logs")
     )
+
+@dp.callback_query(F.data == "toggle_log_hide_user")
+async def toggle_log_hide_user_callback(call: CallbackQuery):
+    global LOG_HIDE_USER
+    if call.from_user.id != ADMIN_ID:
+        await call.answer()
+        return
+    LOG_HIDE_USER = not LOG_HIDE_USER
+    save_config({"LOG_HIDE_USER": LOG_HIDE_USER})
+    state = "включено 🙈" if LOG_HIDE_USER else "выключено 👁"
+    await call.answer(f"Скрытие юзеров: {state}", show_alert=True)
+    # Обновляем панель
+    hide_label = "👁 Показывать юзеров: ВКЛ" if not LOG_HIDE_USER else "🙈 Показывать юзеров: ВЫКЛ"
+    if LOG_CHAT_ID:
+        status = f"✅ Включены\nЧат: {LOG_CHAT_ID}\nТема: {LOG_THREAD_ID or 'не указана'}"
+    else:
+        status = "❌ Выключены"
+    text = (
+        f"📋 Логи — {status}\n\n"
+        f"Скрытие юзернеймов/ID: {'🙈 включено' if LOG_HIDE_USER else '👁 выключено'}\n\n"
+        f"Формат ввода: ID_чата:ID_темы\n"
+        f"Пример: -1001234567890:123"
+    )
+    await edit_msg(call, text, InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Установить", callback_data="set_log_chat")],
+        [InlineKeyboardButton(text=hide_label, callback_data="toggle_log_hide_user")],
+        [InlineKeyboardButton(text="❌ Отключить", callback_data="disable_logs")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")],
+    ]))
 
 @dp.callback_query(F.data == "disable_logs")
 async def disable_logs_callback(call: CallbackQuery):
@@ -2332,4 +2372,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())
