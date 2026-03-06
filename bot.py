@@ -1059,6 +1059,45 @@ async def cmd_admin(message: Message):
         return
     await message.answer("👑 Админ-панель", reply_markup=admin_keyboard())
 
+@dp.message(Command("loginfo"))
+async def cmd_loginfo(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    cfg = load_config()
+    await message.answer(
+        f"🔍 Настройки логов:\n\n"
+        f"В памяти:\n"
+        f"  CHAT_ID: {repr(LOG_CHAT_ID)}\n"
+        f"  THREAD_ID: {repr(LOG_THREAD_ID)}\n\n"
+        f"В файле config.json:\n"
+        f"  CHAT_ID: {repr(cfg.get('LOG_CHAT_ID'))}\n"
+        f"  THREAD_ID: {repr(cfg.get('LOG_THREAD_ID'))}"
+    )
+
+@dp.message(Command("logtest"))
+async def cmd_logtest(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    if not LOG_CHAT_ID:
+        await message.answer("❌ LOG_CHAT_ID не задан — настрой логи в /admin → Логи")
+        return
+    try:
+        send_kwargs = {
+            "chat_id": int(LOG_CHAT_ID),
+            "text": f"🧪 Тест лога\nCHAT: {LOG_CHAT_ID}\nTHREAD: {LOG_THREAD_ID}"
+        }
+        if LOG_THREAD_ID:
+            send_kwargs["message_thread_id"] = int(LOG_THREAD_ID)
+        sent = await bot.send_message(**send_kwargs)
+        await message.answer(
+            f"✅ Сообщение отправлено!\n"
+            f"В чат: {sent.chat.id}\n"
+            f"message_id: {sent.message_id}\n"
+            f"thread_id: {LOG_THREAD_ID or 'не указан'}"
+        )
+    except Exception as e:
+        await message.answer(f"❌ Ошибка отправки:\n{e}")
+
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     await message.answer(
@@ -2293,4 +2332,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()) 
