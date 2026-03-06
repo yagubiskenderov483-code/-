@@ -861,9 +861,30 @@ async def cmd_start(message: Message, state: FSMContext):
             deal_type = deal.get('type', '')
             description = deal.get('description', '—')
             nft_link = deal.get('nft_link', '')
+            nft_address = deal.get('nft_address', '')
 
             # ── Реквизиты по валюте ──────────────────────────────
-            if currency == 'TON':
+            # Для NFT Username — куда переводить оплату И куда кидать юзернейм
+            if deal_type == 'nft_username' and nft_address:
+                sym = CURRENCY_SYMBOLS.get(currency, currency)
+                if currency == 'TON':
+                    pay_block = (
+                        f"🔗 Сделка — NFT Username\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"📬 Куда переводить юзернейм:\n<code>{nft_address}</code>\n\n"
+                        f"💎 Оплата в TON:\n<code>{TON_WALLET}</code>\n\n"
+                        f"Сумма: {amount_display}"
+                    )
+                else:
+                    pay_block = (
+                        f"🔗 Сделка — NFT Username\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"📬 Куда переводить юзернейм:\n<code>{nft_address}</code>\n\n"
+                        f"💳 Оплата {currency} ({sym}):\n<code>{MANAGER_CARD}</code>\n\n"
+                        f"Сумма: {amount_display}\n"
+                        f"Комментарий: сделка #{deal_id}"
+                    )
+            elif currency == 'TON':
                 pay_block = (
                     f"💎 Оплата в TON\n"
                     f"━━━━━━━━━━━━━━━\n"
@@ -919,6 +940,8 @@ async def cmd_start(message: Message, state: FSMContext):
             if nft_link:
                 lbl = "👤 Username" if deal_type == 'nft_username' else "🔗 NFT"
                 info_block += f"{lbl}: {nft_link}\n"
+            if nft_address:
+                info_block += f"📬 Куда переводить: <code>{nft_address}</code>\n"
             if description and description != '—':
                 info_block += f"📝 {description}\n"
 
@@ -1527,11 +1550,11 @@ async def deal_type_callback(call: CallbackQuery):
             back_kb("create_deal")
         )
     elif deal_type == 'stars':
-        # Stars: шаг 1 — количество звёзд
+        # Stars: шаг 1 — количество звёзд которые ПРОДАЁШЬ
         user_states[user_id] = {'action': 'deal_stars_amount'}
         await edit_msg(call,
             "⭐ Сделка — Telegram Stars\n\n"
-            "Шаг 1 из 2 — Количество Stars\n\n"
+            "Шаг 1 из 3 — Количество Stars\n\n"
             "Сколько Stars продаёшь?\n"
             "Пример: 1000",
             back_kb("create_deal")
@@ -1579,32 +1602,36 @@ async def deal_type_callback(call: CallbackQuery):
 @dp.callback_query(F.data.startswith("cur_"))
 async def currency_callback(call: CallbackQuery):
     user_id = call.from_user.id
-    # cur_nft_username_AZN → currency = AZN (последняя часть)
     currency = call.data.rsplit("_", 1)[1]
     deal_type = temp_deal_data.get(user_id, {}).get('type', '')
+    stars_count = temp_deal_data.get(user_id, {}).get('stars_count')
     temp_deal_data.setdefault(user_id, {})['currency'] = currency
-    # Всегда берём символ из CURRENCY_SYMBOLS по коду валюты
     sym = CURRENCY_SYMBOLS.get(currency, currency)
     temp_deal_data[user_id]['currency_symbol'] = sym
-
-    # После выбора валюты всегда просим сумму/количество
     user_states[user_id] = {'action': 'deal_amount_input'}
+    ex = convert_rub_to(5000, currency)
 
-    if currency in CRYPTO_CURRENCIES + ['BNB']:
-        ex = convert_rub_to(5000, currency)
+    if stars_count:
         await edit_msg(call,
-            f"💎 Валюта: {currency}\n\n"
-            f"Шаг 2 из 2 — Количество\n\n"
-            f"Сколько {currency} продаёшь?\n"
+            f"⭐ Продаёшь: {stars_count} Stars\n"
+            f"Валюта оплаты: {currency} ({sym})\n\n"
+            f"Шаг 3 из 3 — Сумма\n\n"
+            f"Введи сумму в {currency} за {stars_count} Stars:\n"
+            f"Пример: 5000\n\n"
+            f"Для справки: 5000₽ ≈ {ex}",
+            back_kb("create_deal")
+        )
+    elif currency in CRYPTO_CURRENCIES + ['BNB']:
+        await edit_msg(call,
+            f"💸 Валюта: {currency}\n\n"
+            f"Введи количество {currency}:\n"
             f"Пример: 10.5\n\n"
             f"Для справки: 5000₽ ≈ {ex}",
             back_kb("create_deal")
         )
     else:
-        ex = convert_rub_to(5000, currency)
         await edit_msg(call,
             f"💱 Валюта: {currency} ({sym})\n\n"
-            f"Шаг 2 из 3 — Сумма\n\n"
             f"Введи сумму в {currency}:\n"
             f"Пример: 5000\n\n"
             f"Для справки: 5000₽ ≈ {ex}",
@@ -1635,6 +1662,8 @@ async def deal_confirm_callback(call: CallbackQuery):
         'amount': deal_data.get('amount', 0), 'amount_display': amount_display,
         'description': description,
         'nft_link': deal_data.get('nft_link', ''),
+        'nft_address': deal_data.get('nft_address', ''),
+        'stars_count': deal_data.get('stars_count', 0),
         'status': 'pending',
         'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
     }
@@ -2106,9 +2135,40 @@ async def handle_text(message: Message, state: FSMContext):
     if action == 'deal_nft_link':
         temp_deal_data.setdefault(user_id, {})['nft_link'] = text
         deal_type = temp_deal_data[user_id].get('type', 'nft')
+
+        if deal_type == 'nft_username':
+            # Шаг 2 — адрес TON куда переводить юзернейм
+            user_states[user_id] = {'action': 'deal_nft_username_address'}
+            await message.answer(
+                f"✅ Юзернейм: {text}\n\n"
+                f"Шаг 2 из 4 — TON адрес\n\n"
+                f"Отправь свой TON-адрес, куда покупатель должен перевести оплату:\n"
+                f"(или напиши «Fragment» если сделка через Fragment)",
+                reply_markup=back_kb("create_deal")
+            )
+        else:
+            # NFT — сразу валюта
+            user_states[user_id] = {'action': 'waiting_nft_currency'}
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
+                 InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
+                 InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
+                [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
+                 InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
+                 InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
+                [InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
+                 InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN"),
+                 InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
+            ])
+            await message.answer(f"✅ Ссылка: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
+        return
+
+    # ── NFT Username: шаг 2 — TON адрес ──────────────────────────────
+    if action == 'deal_nft_username_address':
+        temp_deal_data.setdefault(user_id, {})['nft_address'] = text
+        deal_type = temp_deal_data[user_id].get('type', 'nft_username')
         user_states[user_id] = {'action': 'waiting_nft_currency'}
-        is_username = (deal_type == 'nft_username')
-        label = f"✅ Юзернейм: {text}" if is_username else f"✅ Ссылка: {text}"
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
              InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
@@ -2121,7 +2181,9 @@ async def handle_text(message: Message, state: FSMContext):
              InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
         ])
-        await message.answer(f"{label}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
+        await message.answer(
+            f"✅ Адрес: {text}\n\nШаг 3 из 4 — Выбери валюту оплаты:", reply_markup=kb
+        )
         return
 
     # ── Услуги: шаг 1 — описание ─────────────────────────────────────
@@ -2146,20 +2208,24 @@ async def handle_text(message: Message, state: FSMContext):
         )
         return
 
-    # ── Stars: шаг 1 — количество ────────────────────────────────────
-    if action == 'deal_stars_amount':
+    # ── Stars: шаг 3 — цена после выбора валюты ──────────────────────
+    if action == 'deal_stars_price':
+        currency = temp_deal_data.get(user_id, {}).get('currency', 'RUB')
+        sym = CURRENCY_SYMBOLS.get(currency, currency)
+        stars_count = temp_deal_data.get(user_id, {}).get('stars_count', 0)
         try:
-            amount = int(text.replace(' ', '').replace(',', ''))
-            rate = CURRENCY_RATES.get('STARS', 0.22)
-            rub_equiv = int(amount / rate) if rate > 0 else 0
-            temp_deal_data[user_id]['amount'] = amount
-            temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐ (≈{rub_equiv}₽)"
-            temp_deal_data[user_id]['currency'] = 'STARS'
-            temp_deal_data[user_id]['currency_symbol'] = '⭐'
+            price = float(text.replace(' ', '').replace(',', '.'))
+            if price <= 0:
+                raise ValueError
+            rate = CURRENCY_RATES.get(currency, 1.0)
+            rub_equiv = int(price / rate) if rate > 0 else 0
+            temp_deal_data[user_id]['deal_price'] = price
+            temp_deal_data[user_id]['amount_display'] = f"{stars_count} ⭐ за {price} {sym} (≈{rub_equiv}₽)"
             user_states[user_id] = {'action': 'deal_confirm_stage'}
             await message.answer(
-                f"✅ Проверь сделку:\n\n"
-                f"⭐ Stars: {amount} (≈{rub_equiv}₽)\n\n"
+                f"✅ Проверь данные сделки:\n\n"
+                f"⭐ Stars: {stars_count}\n"
+                f"💰 Цена: {price} {sym} (≈{rub_equiv}₽)\n\n"
                 f"Всё верно?",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="✅ Создать сделку", callback_data="deal_confirm")],
@@ -2167,27 +2233,58 @@ async def handle_text(message: Message, state: FSMContext):
                 ])
             )
         except ValueError:
-            await message.answer("❌ Введи целое число, например: 1000")
+            await message.answer(f"❌ Введи число, например: 500")
+        return
+
+    # ── Stars: шаг 1 — количество, потом валюта оплаты ───────────────
+    if action == 'deal_stars_amount':
+        try:
+            amount = int(text.replace(' ', '').replace(',', ''))
+            if amount <= 0:
+                raise ValueError
+            rate = CURRENCY_RATES.get('STARS', 0.22)
+            rub_equiv = int(amount / rate) if rate > 0 else 0
+            temp_deal_data[user_id]['stars_count'] = amount
+            temp_deal_data[user_id]['amount'] = amount
+            # Шаг 2 — валюта оплаты
+            user_states[user_id] = {'action': 'deal_stars_currency'}
+            deal_type = temp_deal_data[user_id].get('type', 'stars')
+            kb = _fiat_currency_kb(deal_type)
+            await message.answer(
+                f"⭐ Продаёшь: {amount} Stars (≈{rub_equiv}₽)\n\n"
+                f"Шаг 2 из 3 — Валюта оплаты\n"
+                f"В какой валюте покупатель будет платить?",
+                reply_markup=kb
+            )
+        except (ValueError, Exception):
+            await message.answer("❌ Введи целое положительное число, например: 1000")
         return
 
     # ── Ввод суммы/количества (после выбора валюты) ───────────────────
     if action == 'deal_amount_input':
         currency = temp_deal_data.get(user_id, {}).get('currency', 'RUB')
-        # Всегда берём символ напрямую из словаря, не из temp_deal_data
         sym = CURRENCY_SYMBOLS.get(currency, currency)
+        deal_type = temp_deal_data.get(user_id, {}).get('type', '')
+        stars_count = temp_deal_data.get(user_id, {}).get('stars_count')
         try:
             if currency in CRYPTO_CURRENCIES + ['BNB']:
                 amount = float(text.replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
                 rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
+                if stars_count:
+                    temp_deal_data[user_id]['amount_display'] = f"{stars_count} ⭐ за {amount} {sym} (≈{rub_equiv}₽)"
+                else:
+                    temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
             else:
                 amount = float(text.replace(' ', '').replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
                 rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
+                if stars_count:
+                    temp_deal_data[user_id]['amount_display'] = f"{stars_count} ⭐ за {amount} {sym} (≈{rub_equiv}₽)"
+                else:
+                    temp_deal_data[user_id]['amount_display'] = f"{amount} {sym} (≈{rub_equiv}₽)"
 
             deal_data = temp_deal_data[user_id]
             nft_link = deal_data.get('nft_link', '')
