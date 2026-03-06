@@ -827,98 +827,135 @@ async def cmd_start(message: Message, state: FSMContext):
             description = deal.get('description', '—')
             nft_link = deal.get('nft_link', '')
 
-            # Реквизиты куда платить
+            # ── Реквизиты по валюте ──────────────────────────────
             if currency == 'TON':
                 pay_block = (
-                    f"💎 Куда отправить TON:\n"
-                    f"<code>{TON_WALLET}</code>\n\n"
-                    f"Скопируй адрес и отправь {amount_display}"
+                    f"💎 Оплата в TON\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Кошелёк:\n<code>{TON_WALLET}</code>\n\n"
+                    f"Сумма: {amount_display}\n"
+                    f"Скопируй адрес кнопкой и переведи точную сумму"
                 )
             elif currency in ['USDT', 'USDC']:
                 pay_block = (
-                    f"💵 Куда отправить {currency} (TRC20):\n"
-                    f"<code>{USDT_WALLET}</code>\n\n"
-                    f"Скопируй адрес и отправь {amount_display}"
+                    f"💵 Оплата в {currency} (TRC20 / TON)\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Кошелёк:\n<code>{USDT_WALLET}</code>\n\n"
+                    f"Сумма: {amount_display}\n"
+                    f"⚠️ Сеть: TRC20 (Tron) — не перепутай!"
                 )
             elif currency == 'STARS':
                 pay_block = (
-                    f"⭐ Куда отправить Telegram Stars:\n"
-                    f"Бот: @{BOT_USERNAME}\n\n"
-                    f"Отправь {amount_display} через Stars в Telegram"
+                    f"⭐ Оплата Telegram Stars\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Отправь Stars боту: @{BOT_USERNAME}\n\n"
+                    f"Количество: {amount_display}\n"
+                    f"Как отправить: профиль бота → ⭐ Подарить Stars"
+                )
+            elif currency == 'BTC':
+                pay_block = (
+                    f"₿ Оплата в Bitcoin\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Адрес уточни у менеджера: @{MANAGER_USERNAME}\n\n"
+                    f"Сумма: {amount_display}\n"
+                    f"После перевода — пришли txid (хэш транзакции)"
                 )
             elif currency in CRYPTO_CURRENCIES:
                 pay_block = (
-                    f"🔗 Оплата в {currency}:\n"
-                    f"Получи адрес у менеджера: @{MANAGER_USERNAME}\n\n"
-                    f"Сумма: {amount_display}"
+                    f"🔗 Оплата в {currency}\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Адрес уточни у менеджера: @{MANAGER_USERNAME}\n\n"
+                    f"Сумма: {amount_display}\n"
+                    f"После перевода — пришли хэш транзакции"
                 )
             else:
+                sym = CURRENCY_SYMBOLS.get(currency, currency)
                 pay_block = (
-                    f"💳 Куда перевести:\n"
-                    f"<code>{MANAGER_CARD}</code>\n\n"
-                    f"Переведи {amount_display} по СБП или на карту\n"
-                    f"Комментарий: сделка #{deal_id}"
+                    f"💳 Оплата {currency} ({sym})\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Карта / СБП:\n<code>{MANAGER_CARD}</code>\n\n"
+                    f"Сумма: {amount_display}\n"
+                    f"Комментарий при переводе: сделка #{deal_id}\n"
+                    f"⚠️ Без комментария — перевод не засчитается!"
                 )
 
-            # Описание и NFT ссылка
-            desc_block = ""
+            # ── Описание и данные товара ─────────────────────────────
+            info_block = ""
             if nft_link:
-                desc_block += f"🔗 NFT: {nft_link}\n"
+                lbl = "👤 Username" if deal_type == 'nft_username' else "🔗 NFT"
+                info_block += f"{lbl}: {nft_link}\n"
             if description and description != '—':
-                desc_block += f"📝 Описание: {description}\n"
+                info_block += f"📝 {description}\n"
 
-            # Инструкция по типу
+            # ── Инструкция по типу ───────────────────────────────────
+            type_labels = {
+                'nft': '🎁 NFT / Подарок',
+                'nft_username': '🔗 NFT Username',
+                'crypto': '💎 Крипто',
+                'stars': '⭐ Stars',
+                'service': '💼 Услуга',
+                'game': '🎮 Игры / Аккаунты',
+                'goods': '📦 Товар',
+            }
+            type_label = type_labels.get(deal_type, deal_type)
+
             if deal_type in ['nft', 'nft_username']:
-                instruction = (
-                    f"📌 Как купить NFT:\n"
-                    f"1. Переведи оплату по реквизитам выше\n"
-                    f"2. Нажми «Я оплатил»\n"
-                    f"3. Продавец передаст NFT после подтверждения оплаты\n"
-                    f"4. Гарант: @{MANAGER_USERNAME}"
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи оплату по реквизитам выше\n"
+                    f"2️⃣ Нажми кнопку «✅ Я оплатил»\n"
+                    f"3️⃣ Продавец получит уведомление\n"
+                    f"4️⃣ После подтверждения — NFT передаётся тебе\n"
+                    f"🛡 Гарант сделки: @{MANAGER_USERNAME}"
                 )
             elif deal_type == 'crypto':
-                instruction = (
-                    f"📌 Как завершить крипто-сделку:\n"
-                    f"1. Переведи крипту на адрес выше\n"
-                    f"2. Нажми «Я оплатил»\n"
-                    f"3. Укажи txid транзакции менеджеру\n"
-                    f"4. Гарант: @{MANAGER_USERNAME}"
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи крипту по адресу выше\n"
+                    f"2️⃣ Скопируй хэш (txid) транзакции\n"
+                    f"3️⃣ Нажми «✅ Я оплатил» и пришли хэш менеджеру\n"
+                    f"4️⃣ После подтверждения — продавец передаёт товар\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
             elif deal_type == 'stars':
-                instruction = (
-                    f"📌 Как отправить Stars:\n"
-                    f"1. Открой бота @{BOT_USERNAME} в Telegram\n"
-                    f"2. Отправь {amount_display} через раздел Stars\n"
-                    f"3. Нажми «Я оплатил»"
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Открой бота @{BOT_USERNAME}\n"
+                    f"2️⃣ Нажми на профиль → ⭐ Подарить Stars\n"
+                    f"3️⃣ Отправь нужное количество\n"
+                    f"4️⃣ Нажми «✅ Я оплатил»\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
             elif deal_type == 'service':
-                instruction = (
-                    f"📌 Условия сделки за услугу:\n"
-                    f"1. Переведи оплату по реквизитам\n"
-                    f"2. Нажми «Я оплатил»\n"
-                    f"3. Исполнитель начнёт работу после подтверждения\n"
-                    f"4. Гарант: @{MANAGER_USERNAME}"
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи оплату по реквизитам выше\n"
+                    f"2️⃣ Нажми «✅ Я оплатил»\n"
+                    f"3️⃣ Исполнитель начнёт работу после подтверждения\n"
+                    f"4️⃣ После выполнения — подтверди получение\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
             else:
-                instruction = (
-                    f"📌 Как завершить сделку:\n"
-                    f"1. Переведи оплату по реквизитам выше\n"
-                    f"2. Нажми «Я оплатил»\n"
-                    f"3. Продавец выдаст товар после подтверждения\n"
-                    f"4. Гарант: @{MANAGER_USERNAME}"
+                how_to = (
+                    f"📋 Порядок сделки:\n"
+                    f"1️⃣ Переведи оплату по реквизитам выше\n"
+                    f"2️⃣ Нажми «✅ Я оплатил»\n"
+                    f"3️⃣ Продавец получит уведомление\n"
+                    f"4️⃣ После подтверждения — товар передаётся тебе\n"
+                    f"🛡 Гарант: @{MANAGER_USERNAME}"
                 )
 
             text = (
-                f"🤝 Сделка #{{deal_id}}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"👤 Продавец: @{{deal['buyer_username']}}\n"
-                f"🏷️ Тип: {{deal_type}}\n"
-                f"💰 Сумма: {{amount_display}}\n"
-                + (desc_block if desc_block else "") +
-                f"━━━━━━━━━━━━━━━\n"
-                f"{{pay_block}}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"{{instruction}}"
+                f"🤝 Сделка #{deal_id}\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"👤 Продавец: @{deal['buyer_username']}\n"
+                f"🏷 Тип: {type_label}\n"
+                f"💰 Сумма: {amount_display}\n"
+                + (info_block if info_block else "") +
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{pay_block}\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{how_to}"
             )
 
             # Регистрируем второго участника автоматически
@@ -1170,7 +1207,6 @@ async def product_callback(call: CallbackQuery):
     lang = user_language.get(user_id, 'ru')
     price_rub = p['price']
 
-    # Конвертация цены в популярные валюты
     show_currencies = {
         'ru': ['USD', 'EUR', 'KZT', 'UAH', 'TON', 'USDT'],
         'en': ['USD', 'EUR', 'GBP', 'TON', 'USDT'],
@@ -1182,13 +1218,9 @@ async def product_callback(call: CallbackQuery):
     hints = [convert_rub_to(float(price_rub), cur) for cur in show_currencies]
     hint_text = "  |  ".join(hints)
 
-    # Ссылка на товар
-    product_link = f"https://t.me/{BOT_USERNAME}?start=prod_{pid}"
-
     text = (
         f"📦 {p['name']}\n\n"
         f"📝 {p['description']}\n\n"
-        f"🔗 Ссылка: {product_link}\n"
         f"💰 Цена: {price_rub}₽\n"
         f"💱 {hint_text}\n"
         f"📊 В наличии: {p['stock']} шт."
@@ -1330,6 +1362,27 @@ async def deal_paid_callback(call: CallbackQuery):
     except Exception:
         pass
 
+def _fiat_currency_kb(deal_type: str) -> InlineKeyboardMarkup:
+    """Клавиатура выбора валюты для сделок с фиатом + крипто"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
+         InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD"),
+         InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR")],
+        [InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT"),
+         InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
+         InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN")],
+        [InlineKeyboardButton(text="₺ TRY", callback_data=f"cur_{deal_type}_TRY"),
+         InlineKeyboardButton(text="Br BYN", callback_data=f"cur_{deal_type}_BYN"),
+         InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
+        [InlineKeyboardButton(text="₾ GEL", callback_data=f"cur_{deal_type}_GEL"),
+         InlineKeyboardButton(text="֏ AMD", callback_data=f"cur_{deal_type}_AMD"),
+         InlineKeyboardButton(text="so'm UZS", callback_data=f"cur_{deal_type}_UZS")],
+        [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
+         InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
+         InlineKeyboardButton(text="⭐ STARS", callback_data=f"cur_{deal_type}_STARS")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
+    ])
+
 # ============ СОЗДАТЬ СДЕЛКУ ============
 
 @dp.callback_query(F.data == "create_deal")
@@ -1349,81 +1402,78 @@ async def create_deal_callback(call: CallbackQuery):
 async def deal_type_callback(call: CallbackQuery):
     user_id = call.from_user.id
     deal_type = call.data.replace("deal_type_", "")
-    temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id}
+    temp_deal_data[user_id] = {'type': deal_type, 'buyer_id': user_id,
+                                'buyer_username': call.from_user.username or str(user_id)}
 
-    # Определяем какие типы требуют сумму ПЕРВЫМ шагом
-    # (крипто, звёзды, доллары, тоны — то что продаёшь как количество)
-    AMOUNT_FIRST_TYPES = ['crypto', 'stars', 'game', 'goods']
-    # NFT и NFT username — сначала ссылка на NFT
-    NFT_TYPES = ['nft', 'nft_username']
-    # Услуги — сначала описание
-    DESCRIPTION_FIRST_TYPES = ['service']
-
-    if deal_type in NFT_TYPES:
-        # Шаг 1: ссылка на NFT
+    if deal_type == 'nft':
+        # NFT: шаг 1 — ссылка на NFT-подарок
         user_states[user_id] = {'action': 'deal_nft_link'}
         await edit_msg(call,
-            "🎁 NFT сделка\n\n"
-            "Шаг 1/3: Отправь ссылку на NFT\n\n"
-            "Например: https://t.me/nft/...",
+            "🎁 Сделка — NFT / Подарок Telegram\n\n"
+            "Шаг 1 из 3 — Ссылка на NFT\n\n"
+            "Отправь ссылку на NFT подарок:\n"
+            "Пример: https://t.me/nft/CatWithHat-123",
             back_kb("create_deal")
         )
-    elif deal_type in DESCRIPTION_FIRST_TYPES:
-        # Шаг 1: описание услуги
-        user_states[user_id] = {'action': 'deal_service_desc'}
+    elif deal_type == 'nft_username':
+        # NFT Username: шаг 1 — юзернейм
+        user_states[user_id] = {'action': 'deal_nft_link'}
         await edit_msg(call,
-            "💼 Сделка — Услуги\n\n"
-            "Шаг 1/3: Опиши услугу\n\n"
-            "Например: Разработка Telegram бота под ключ",
+            "🔗 Сделка — NFT Username (TON)\n\n"
+            "Шаг 1 из 3 — Юзернейм\n\n"
+            "Отправь юзернейм который продаёшь:\n"
+            "Пример: @username или fragment.com/username/...",
             back_kb("create_deal")
         )
     elif deal_type == 'stars':
-        # Stars — сразу сумма (количество звёзд)
-        user_states[user_id] = {'action': 'deal_amount_first'}
+        # Stars: шаг 1 — количество звёзд
+        user_states[user_id] = {'action': 'deal_stars_amount'}
         await edit_msg(call,
             "⭐ Сделка — Telegram Stars\n\n"
-            "Шаг 1/2: Введи количество Stars которые продаёшь\n\n"
+            "Шаг 1 из 2 — Количество Stars\n\n"
+            "Сколько Stars продаёшь?\n"
             "Пример: 1000",
             back_kb("create_deal")
         )
+    elif deal_type == 'crypto':
+        # Крипто: шаг 1 — выбор крипты → потом сумма
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
+             InlineKeyboardButton(text="₿ BTC", callback_data=f"cur_{deal_type}_BTC"),
+             InlineKeyboardButton(text="Ξ ETH", callback_data=f"cur_{deal_type}_ETH")],
+            [InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
+             InlineKeyboardButton(text="USDC", callback_data=f"cur_{deal_type}_USDC"),
+             InlineKeyboardButton(text="SOL", callback_data=f"cur_{deal_type}_SOL")],
+            [InlineKeyboardButton(text="DOGE", callback_data=f"cur_{deal_type}_DOGE"),
+             InlineKeyboardButton(text="XRP", callback_data=f"cur_{deal_type}_XRP"),
+             InlineKeyboardButton(text="LTC", callback_data=f"cur_{deal_type}_LTC")],
+            [InlineKeyboardButton(text="ADA", callback_data=f"cur_{deal_type}_ADA"),
+             InlineKeyboardButton(text="BNB", callback_data=f"cur_{deal_type}_BNB")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
+        ])
+        await edit_msg(call, "💎 Сделка — Крипто\n\nШаг 1 из 2 — Выбери криптовалюту:", kb)
+    elif deal_type == 'service':
+        # Услуги: шаг 1 — описание
+        user_states[user_id] = {'action': 'deal_service_desc'}
+        await edit_msg(call,
+            "💼 Сделка — Услуги\n\n"
+            "Шаг 1 из 3 — Описание\n\n"
+            "Опиши услугу подробно:\n"
+            "Что делаешь, сроки, условия\n\n"
+            "Пример: Разработка Telegram бота под ключ, срок 3 дня",
+            back_kb("create_deal")
+        )
     else:
-        # Для всех остальных (game, goods, crypto) — сначала сумма/количество
-        # но сначала выбор валюты
-        if deal_type == 'crypto':
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-                 InlineKeyboardButton(text="₿ BTC", callback_data=f"cur_{deal_type}_BTC"),
-                 InlineKeyboardButton(text="Ξ ETH", callback_data=f"cur_{deal_type}_ETH")],
-                [InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
-                 InlineKeyboardButton(text="USDC", callback_data=f"cur_{deal_type}_USDC"),
-                 InlineKeyboardButton(text="SOL", callback_data=f"cur_{deal_type}_SOL")],
-                [InlineKeyboardButton(text="DOGE", callback_data=f"cur_{deal_type}_DOGE"),
-                 InlineKeyboardButton(text="XRP", callback_data=f"cur_{deal_type}_XRP"),
-                 InlineKeyboardButton(text="LTC", callback_data=f"cur_{deal_type}_LTC")],
-                [InlineKeyboardButton(text="ADA", callback_data=f"cur_{deal_type}_ADA")],
-                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-            ])
-            await edit_msg(call, "💎 Крипто сделка\n\nШаг 1/3: Выбери криптовалюту:", kb)
-        else:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
-                 InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD"),
-                 InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR")],
-                [InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP"),
-                 InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
-                 InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
-                [InlineKeyboardButton(text="Br BYN", callback_data=f"cur_{deal_type}_BYN"),
-                 InlineKeyboardButton(text="₺ TRY", callback_data=f"cur_{deal_type}_TRY"),
-                 InlineKeyboardButton(text="¥ CNY", callback_data=f"cur_{deal_type}_CNY")],
-                [InlineKeyboardButton(text="₾ GEL", callback_data=f"cur_{deal_type}_GEL"),
-                 InlineKeyboardButton(text="֏ AMD", callback_data=f"cur_{deal_type}_AMD"),
-                 InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN")],
-                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-                 InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
-                 InlineKeyboardButton(text="⭐ STARS", callback_data=f"cur_{deal_type}_STARS")],
-                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-            ])
-            await edit_msg(call, "Шаг 1/3: Выбери валюту:", kb)
+        # game / goods: шаг 1 — описание, потом валюта, потом сумма
+        user_states[user_id] = {'action': 'deal_goods_desc'}
+        label = "🎮 Игры / Аккаунты" if deal_type == 'game' else "📦 Товар"
+        await edit_msg(call,
+            f"{label}\n\n"
+            "Шаг 1 из 3 — Описание\n\n"
+            "Опиши что продаёшь:\n"
+            "Пример: Steam аккаунт CS2 Prime, 1500 часов, инвентарь 5000₽",
+            back_kb("create_deal")
+        )
 
 @dp.callback_query(F.data.startswith("cur_"))
 async def currency_callback(call: CallbackQuery):
@@ -1433,30 +1483,29 @@ async def currency_callback(call: CallbackQuery):
     deal_type = temp_deal_data.get(user_id, {}).get('type', '')
     temp_deal_data.setdefault(user_id, {})['currency'] = currency
     temp_deal_data[user_id]['currency_symbol'] = CURRENCY_SYMBOLS.get(currency, currency)
-
     sym = CURRENCY_SYMBOLS.get(currency, currency)
-    example_rub = 5000
-    example_hint = convert_rub_to(float(example_rub), currency)
 
-    # NFT — после выбора валюты спрашиваем СУММУ
-    # Услуги — после выбора валюты спрашиваем СУММУ
-    # Крипто — после выбора валюты спрашиваем КОЛИЧЕСТВО
-    # Остальные (game/goods) — после выбора валюты спрашиваем СУММУ
+    # После выбора валюты всегда просим сумму/количество
+    user_states[user_id] = {'action': 'deal_amount_input'}
 
-    if currency in CRYPTO_CURRENCIES:
-        user_states[user_id] = {'action': 'deal_amount_first'}
+    if currency in CRYPTO_CURRENCIES + ['BNB']:
+        ex = convert_rub_to(5000, currency)
         await edit_msg(call,
-            f"💰 Введи количество {currency} которое продаёшь:\n\n"
-            f"Пример: 1.5 {sym}\n"
-            f"Для справки: {example_rub}₽ {example_hint}",
+            f"💎 Валюта: {currency}\n\n"
+            f"Шаг 2 из 2 — Количество\n\n"
+            f"Сколько {currency} продаёшь?\n"
+            f"Пример: 10.5\n\n"
+            f"Для справки: 5000₽ ≈ {ex}",
             back_kb("create_deal")
         )
     else:
-        user_states[user_id] = {'action': 'deal_amount_first'}
+        ex = convert_rub_to(5000, currency)
         await edit_msg(call,
-            f"💰 Введи сумму в {currency} ({sym}):\n\n"
-            f"Пример: 5000\n"
-            f"Для справки: {example_rub}₽ {example_hint}",
+            f"💱 Валюта: {currency} ({sym})\n\n"
+            f"Шаг 2 из 3 — Сумма\n\n"
+            f"Введи сумму в {currency}:\n"
+            f"Пример: 5000\n\n"
+            f"Для справки: 5000₽ ≈ {ex}",
             back_kb("create_deal")
         )
 
@@ -1899,74 +1948,65 @@ async def handle_text(message: Message, state: FSMContext):
         return
     text = message.text.strip()
 
-    # ── NFT: шаг 1 — ссылка на NFT ──────────────────────────────────
+    # ── NFT / NFT Username: шаг 1 — ссылка или юзернейм ─────────────
     if action == 'deal_nft_link':
         temp_deal_data.setdefault(user_id, {})['nft_link'] = text
         deal_type = temp_deal_data[user_id].get('type', 'nft')
-        # Шаг 2: выбор валюты
-        user_states[user_id] = {'action': 'waiting_currency'}
-        if deal_type == 'nft_username':
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-                 InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
-                 InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
-                [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
-                 InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT")],
-                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-            ])
-        else:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-                 InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
-                 InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
-                [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
-                 InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
-                 InlineKeyboardButton(text="⭐ STARS", callback_data=f"cur_{deal_type}_STARS")],
-                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-            ])
-        await message.answer(
-            f"✅ Ссылка: {text}\n\nШаг 2/3: Выбери валюту оплаты:", reply_markup=kb
-        )
+        user_states[user_id] = {'action': 'waiting_nft_currency'}
+        is_username = (deal_type == 'nft_username')
+        label = f"✅ Юзернейм: {text}" if is_username else f"✅ Ссылка: {text}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
+             InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
+             InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
+            [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
+             InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
+             InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
+            [InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
+             InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN"),
+             InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
+        ])
+        await message.answer(f"{label}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
         return
 
     # ── Услуги: шаг 1 — описание ─────────────────────────────────────
     if action == 'deal_service_desc':
         temp_deal_data.setdefault(user_id, {})['description'] = text
         deal_type = temp_deal_data[user_id].get('type', 'service')
-        user_states[user_id] = {'action': 'waiting_currency'}
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
-             InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD"),
-             InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR")],
-            [InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP"),
-             InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
-             InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
-            [InlineKeyboardButton(text="Br BYN", callback_data=f"cur_{deal_type}_BYN"),
-             InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-             InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-        ])
+        user_states[user_id] = {'action': 'waiting_nft_currency'}
+        kb = _fiat_currency_kb(deal_type)
         await message.answer(
-            f"✅ Описание: {text}\n\nШаг 2/3: Выбери валюту оплаты:", reply_markup=kb
+            f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb
+        )
+        return
+
+    # ── game/goods: шаг 1 — описание ─────────────────────────────────
+    if action == 'deal_goods_desc':
+        temp_deal_data.setdefault(user_id, {})['description'] = text
+        deal_type = temp_deal_data[user_id].get('type', 'goods')
+        user_states[user_id] = {'action': 'waiting_nft_currency'}
+        kb = _fiat_currency_kb(deal_type)
+        await message.answer(
+            f"✅ Описание: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb
         )
         return
 
     # ── Stars: шаг 1 — количество ────────────────────────────────────
-    if action == 'deal_amount_first' and temp_deal_data.get(user_id, {}).get('type') == 'stars':
+    if action == 'deal_stars_amount':
         try:
             amount = int(text.replace(' ', '').replace(',', ''))
             rate = CURRENCY_RATES.get('STARS', 0.22)
-            rub_equiv = amount / rate if rate > 0 else 0
+            rub_equiv = int(amount / rate) if rate > 0 else 0
             temp_deal_data[user_id]['amount'] = amount
-            temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐ (≈{rub_equiv:.0f}₽)"
+            temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐ (≈{rub_equiv}₽)"
             temp_deal_data[user_id]['currency'] = 'STARS'
             temp_deal_data[user_id]['currency_symbol'] = '⭐'
-            # Сразу на финал
             user_states[user_id] = {'action': 'deal_confirm_stage'}
             await message.answer(
-                f"✅ Проверь данные сделки:\n\n"
-                f"⭐ Количество: {amount} Stars (≈{rub_equiv:.0f}₽)\n\n"
-                f"Всё верно? Нажми «Создать»",
+                f"✅ Проверь сделку:\n\n"
+                f"⭐ Stars: {amount} (≈{rub_equiv}₽)\n\n"
+                f"Всё верно?",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="✅ Создать сделку", callback_data="deal_confirm")],
                     [InlineKeyboardButton(text="🔙 Отмена", callback_data="create_deal")],
@@ -1976,32 +2016,34 @@ async def handle_text(message: Message, state: FSMContext):
             await message.answer("❌ Введи целое число, например: 1000")
         return
 
-    # ── Все остальные: шаг "сумма" (после выбора валюты) ─────────────
-    if action == 'deal_amount_first':
+    # ── Ввод суммы/количества (после выбора валюты) ───────────────────
+    if action == 'deal_amount_input':
         currency = temp_deal_data.get(user_id, {}).get('currency', 'RUB')
         currency_symbol = temp_deal_data.get(user_id, {}).get('currency_symbol', '₽')
         try:
-            if currency in CRYPTO_CURRENCIES:
+            if currency in CRYPTO_CURRENCIES + ['BNB']:
                 amount = float(text.replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
-                rub_equiv = amount / rate if rate > 0 else 0
+                rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency} (≈{rub_equiv:.0f}₽)"
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency} (≈{rub_equiv}₽)"
             else:
                 amount = float(text.replace(' ', '').replace(',', '.'))
                 rate = CURRENCY_RATES.get(currency, 1.0)
-                rub_equiv = amount / rate if rate > 0 else 0
+                rub_equiv = int(amount / rate) if rate > 0 else 0
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount}{currency_symbol} (≈{rub_equiv:.0f}₽)"
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency_symbol} (≈{rub_equiv}₽)"
 
-            display = temp_deal_data[user_id]['amount_display']
-            desc = temp_deal_data[user_id].get('description', '')
-            nft_link = temp_deal_data[user_id].get('nft_link', '')
+            deal_data = temp_deal_data[user_id]
+            nft_link = deal_data.get('nft_link', '')
+            desc = deal_data.get('description', '')
+            display = deal_data['amount_display']
+            deal_type = deal_data.get('type', '')
 
-            # Собираем итоговую карточку
-            summary = f"✅ Проверь данные сделки:\n\n"
+            summary = "✅ Проверь данные сделки:\n\n"
             if nft_link:
-                summary += f"🔗 NFT: {nft_link}\n"
+                label = "👤 Юзернейм" if deal_type == 'nft_username' else "🔗 NFT"
+                summary += f"{label}: {nft_link}\n"
             if desc:
                 summary += f"📝 Описание: {desc}\n"
             summary += f"💱 Валюта: {currency}\n"
@@ -2017,17 +2059,9 @@ async def handle_text(message: Message, state: FSMContext):
             await message.answer("❌ Введи число, например: 5000 или 1.5")
         return
 
-    # ── Старые действия (оставляем для совместимости) ────────────────
-    if action == 'deal_amount':
-        await message.answer("❌ Что-то пошло не так, начни сделку заново.", reply_markup=back_kb("create_deal"))
-        return
-
-    if action == 'deal_description_first':
-        await message.answer("❌ Что-то пошло не так, начни сделку заново.", reply_markup=back_kb("create_deal"))
-        return
-
-    if action == 'deal_description':
-        await message.answer("❌ Что-то пошло не так, начни сделку заново.", reply_markup=back_kb("create_deal"))
+    # ── Старые состояния — редирект ───────────────────────────────────
+    if action in ('deal_amount', 'deal_amount_first', 'deal_description_first', 'deal_description'):
+        await message.answer("❌ Начни сделку заново.", reply_markup=back_kb("create_deal"))
         return
 
     if action == 'review_select_user':
