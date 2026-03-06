@@ -1478,11 +1478,16 @@ async def currency_callback(call: CallbackQuery):
         'RUB': '₽',
         'USD': '$',
         'EUR': '€',
+        'GBP': '£',
         'TON': 'TON',
-        'BTC': 'BTC',
-        'ETH': 'ETH',
+        'BTC': '₿',
+        'ETH': 'Ξ',
         'USDT': 'USDT',
         'STARS': '⭐',
+        'DOGE': 'DOGE',
+        'XRP': 'XRP',
+        'LTC': 'LTC',
+        'ADA': 'ADA',
     }
     
     temp_deal_data[user_id]['currency'] = currency
@@ -1490,8 +1495,8 @@ async def currency_callback(call: CallbackQuery):
     user_states[user_id] = {'action': 'deal_amount'}
     
     # Подсказка для ввода суммы
-    if currency in ['TON', 'BTC', 'ETH', 'USDT']:
-        prompt = f"💰 Введи сумму в {currency}:\n\nПримеры: `1 TON`, `0.01 BTC`, `10 USDT`"
+    if currency in ['TON', 'BTC', 'ETH', 'USDT', 'DOGE', 'XRP', 'LTC', 'ADA']:
+        prompt = f"💰 Введи сумму в {currency}:\n\nПримеры: `1 TON`, `0.01 BTC`, `10 USDT`, `100 DOGE`"
     elif currency == 'STARS':
         prompt = f"⭐ Введи количество Telegram Stars:\n\nПримеры: `500`, `1000`"
     else:
@@ -1839,11 +1844,11 @@ async def handle_text(message: Message, state: FSMContext):
         currency_symbol = temp_deal_data.get(user_id, {}).get('currency_symbol', '₽')
         
         try:
-            if currency in ['TON', 'BTC', 'ETH', 'USDT']:
+            if currency in ['TON', 'BTC', 'ETH', 'USDT', 'DOGE', 'XRP', 'LTC', 'ADA']:
                 # Парсим крипто: "1 TON", "0.01 BTC"
                 parts = text.upper().split()
                 if len(parts) < 1:
-                    await message.answer(f"❌ Неправильный формат. Примеры: `1 TON`, `0.01 BTC`")
+                    await message.answer(f"❌ Неправильный формат. Примеры: `1 TON`, `0.01 BTC`, `100 DOGE`")
                     return
                 amount_str = parts[0]
                 amount = float(amount_str)
