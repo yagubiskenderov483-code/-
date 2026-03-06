@@ -1223,33 +1223,89 @@ async def currency_callback(call: CallbackQuery):
     currency = parts[2]
     temp_deal_data.setdefault(user_id, {})['currency'] = currency
     temp_deal_data[user_id]['currency_symbol'] = CURRENCY_SYMBOLS.get(currency, currency)
-    user_states[user_id] = {'action': 'deal_amount'}
 
     sym = CURRENCY_SYMBOLS.get(currency, currency)
-    # Показываем подсказку: 5000₽ в этой валюте
     example_rub = 5000
     example_hint = convert_rub_to(float(example_rub), currency)
 
-    if currency in CRYPTO_CURRENCIES:
-        prompt = (
-            f"💰 Введи сумму в {currency}:\n\n"
-            f"Пример: 1.5 {sym}\n\n"
-            f"Для справки: {example_rub}₽ = {example_hint}"
-        )
-    elif currency == 'STARS':
-        prompt = (
-            f"⭐ Введи количество Stars:\n\n"
-            f"Пример: 500\n\n"
-            f"Для справки: {example_rub}₽ = {example_hint}"
-        )
+    if currency in CRYPTO_CURRENCIES or currency == 'STARS':
+        # Крипто и Stars: сначала количество, потом ₽ эквивалент
+        user_states[user_id] = {'action': 'deal_amount'}
+        if currency == 'STARS':
+            prompt = (
+                f"⭐ Введи количество Telegram Stars:\n\n"
+                f"Пример: 500 ⭐\n\n"
+                f"Для справки: {example_rub}₽ {example_hint}"
+            )
+        else:
+            prompt = (
+                f"💰 Введи количество {currency}:\n\n"
+                f"Пример: 1.5 {sym}\n\n"
+                f"Для справки: {example_rub}₽ {example_hint}"
+            )
+        await edit_msg(call, prompt, back_kb("create_deal"))
     else:
+        # Обычные валюты: сначала описание/ссылка, потом сумма
+        user_states[user_id] = {'action': 'deal_description_first'}
         prompt = (
-            f"💰 Введи сумму в {currency} ({sym}):\n\n"
-            f"Пример: 5000\n\n"
-            f"Для справки: {example_rub}₽ = {example_hint}"
+            f"📝 Опиши что продаётся/покупается:\n\n"
+            f"Например: Steam аккаунт с CS2, или ссылка на товар\n\n"
+            f"Валюта: {sym} ({currency})"
         )
+        await edit_msg(call, prompt, back_kb("create_deal"))
 
-    await edit_msg(call, prompt, back_kb("create_deal"))
+# ============ ФИНАЛЬНОЕ СОЗДАНИЕ СДЕЛКИ ============
+
+@dp.callback_query(F.data == "deal_confirm")
+async def deal_confirm_callback(call: CallbackQuery):
+    user_id = call.from_user.id
+    deal_data = temp_deal_data.get(user_id, {})
+    if not deal_data:
+        await call.answer("❌ Данные сделки не найдены", show_alert=True)
+        return
+
+    deal_id = generate_id()
+    buyer_id = deal_data.get('buyer_id', user_id)
+    buyer_username = call.from_user.username or str(buyer_id)
+    amount_display = deal_data.get('amount_display', '?')
+    currency = deal_data.get('currency', 'RUB')
+    description = deal_data.get('description', '—')
+
+    deals[deal_id] = {
+        'id': deal_id, 'buyer_id': buyer_id, 'seller_id': None,
+        'buyer_username': buyer_username, 'seller_username': '?',
+        'type': deal_data.get('type', '?'), 'currency': currency,
+        'amount': deal_data.get('amount', 0), 'amount_display': amount_display,
+        'description': description, 'status': 'pending',
+        'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
+    }
+    user_stats.setdefault(buyer_id, {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'})
+    user_stats[buyer_id]['deals_total'] += 1
+    temp_deal_data.pop(user_id, None)
+    user_states.pop(user_id, None)
+
+    deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
+    try:
+        await call.message.edit_text(
+            f"✅ Сделка создана!\n\n"
+            f"ID: {deal_id}\n"
+            f"📝 Описание: {description}\n"
+            f"💰 Сумма: {amount_display}\n\n"
+            f"Ссылка для второго участника:\n{deal_link}",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔗 Открыть сделку", url=deal_link)],
+                [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
+            ])
+        )
+    except Exception:
+        await call.message.answer(
+            f"✅ Сделка создана!\n\nСсылка:\n{deal_link}",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔗 Открыть сделку", url=deal_link)],
+                [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
+            ])
+        )
+    await log_event('deal_created', buyer_id, f"Сделка @{buyer_username} — {amount_display}")
 
 # ============ ПРОДАТЬ ТОВАР ============
 
@@ -1469,16 +1525,17 @@ async def admin_products_callback(call: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_banner")
 async def admin_banner_callback(call: CallbackQuery):
+    global BANNER_FILE_ID
     if call.from_user.id != ADMIN_ID:
         await call.answer()
         return
+    # Сразу ставим состояние ожидания фото
+    user_states[call.from_user.id] = {'action': 'upload_banner'}
     status = "загружен ✅" if BANNER_FILE_ID else "не загружен ❌"
     text = (
         f"📸 Баннер: {status}\n\n"
-        f"Как загрузить:\n"
-        f"1. Отправь команду /admin_upload\n"
-        f"2. Сразу после этого отправь фото\n\n"
-        f"Баннер показывается в главном меню."
+        f"Отправь фото прямо сейчас — оно станет баннером главного меню.\n\n"
+        f"Или нажми «Удалить» чтобы убрать текущий баннер."
     )
     await edit_msg(call, text, InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🗑️ Удалить баннер", callback_data="delete_banner")],
@@ -1492,6 +1549,7 @@ async def delete_banner_callback(call: CallbackQuery):
         await call.answer()
         return
     BANNER_FILE_ID = None
+    user_states.pop(call.from_user.id, None)
     await call.answer("✅ Баннер удалён", show_alert=True)
     await edit_msg(call, "📸 Баннер удалён.", back_kb("admin_panel"))
 
@@ -1510,9 +1568,9 @@ async def handle_photo(message: Message):
         BANNER_FILE_ID = message.photo[-1].file_id
         user_states.pop(user_id, None)
         await message.answer(
-            f"✅ Баннер загружен успешно!\n\n"
-            f"Теперь при открытии главного меню будет показываться это фото.\n"
-            f"Проверь: напиши /start"
+            f"✅ Баннер загружен!\n\n"
+            f"Теперь в главном меню будет показываться это фото.\n"
+            f"Проверь — напиши /start"
         )
 
 # ============ ЛОГИ ============
@@ -1640,53 +1698,85 @@ async def handle_text(message: Message, state: FSMContext):
             if currency in CRYPTO_CURRENCIES:
                 amount = float(text.replace(',', '.'))
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency}"
+                rate = CURRENCY_RATES.get(currency, 1.0)
+                rub_equiv = amount / rate if rate > 0 else 0
+                temp_deal_data[user_id]['amount_display'] = f"{amount} {currency} (≈{rub_equiv:.0f}₽)"
+                # После количества — просим описание
+                user_states[user_id] = {'action': 'deal_description'}
+                await message.answer(
+                    f"💰 Количество: {amount} {currency} (≈{rub_equiv:.0f}₽)\n\n"
+                    f"📝 Теперь опиши что продаётся/покупается:\n"
+                    f"(ссылка на товар, никнейм, описание)",
+                    reply_markup=back_kb("create_deal")
+                )
             elif currency == 'STARS':
                 amount = int(text.replace(' ', '').replace(',', ''))
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐"
+                rate = CURRENCY_RATES.get('STARS', 0.22)
+                rub_equiv = amount / rate if rate > 0 else 0
+                temp_deal_data[user_id]['amount_display'] = f"{amount} ⭐ (≈{rub_equiv:.0f}₽)"
+                user_states[user_id] = {'action': 'deal_description'}
+                await message.answer(
+                    f"⭐ Количество: {amount} Stars (≈{rub_equiv:.0f}₽)\n\n"
+                    f"📝 Теперь опиши что продаётся/покупается:",
+                    reply_markup=back_kb("create_deal")
+                )
             else:
                 amount = float(text.replace(' ', '').replace(',', '.'))
                 temp_deal_data[user_id]['amount'] = amount
-                temp_deal_data[user_id]['amount_display'] = f"{amount}{currency_symbol}"
-            user_states[user_id] = {'action': 'deal_description'}
-            display = temp_deal_data[user_id].get('amount_display', text)
-            await message.answer(f"Сумма: {display}\n\n📝 Опиши что продаётся/покупается:", reply_markup=back_kb("create_deal"))
+                rate = CURRENCY_RATES.get(currency, 1.0)
+                rub_equiv = amount / rate if rate > 0 else 0
+                temp_deal_data[user_id]['amount_display'] = f"{amount}{currency_symbol} (≈{rub_equiv:.0f}₽)"
+
+                user_states[user_id] = {'action': 'deal_finalize'}
+                display = temp_deal_data[user_id].get('amount_display', text)
+                desc = temp_deal_data[user_id].get('description', '')
+                await message.answer(
+                    f"✅ Проверь данные сделки:\n\n"
+                    f"📝 Описание: {desc}\n"
+                    f"💰 Сумма: {display}\n\n"
+                    f"Всё верно? Нажми «Создать сделку»",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="✅ Создать сделку", callback_data="deal_confirm")],
+                        [InlineKeyboardButton(text="🔙 Отмена", callback_data="create_deal")],
+                    ])
+                )
         except ValueError:
-            await message.answer("❌ Введи сумму числом, например: 5000")
+            await message.answer("❌ Введи число, например: 1.5 или 500")
+        return
+
+    if action == 'deal_description_first':
+        temp_deal_data.setdefault(user_id, {})['description'] = text
+        currency = temp_deal_data[user_id].get('currency', 'RUB')
+        currency_symbol = temp_deal_data[user_id].get('currency_symbol', '₽')
+        user_states[user_id] = {'action': 'deal_amount'}
+        example_rub = 5000
+        example_hint = convert_rub_to(float(example_rub), currency)
+        await message.answer(
+            f"📝 Описание: {text}\n\n"
+            f"💰 Введи сумму в {currency} ({currency_symbol}):\n\n"
+            f"Пример: 5000\n"
+            f"Для справки: {example_rub}₽ {example_hint}",
+            reply_markup=back_kb("create_deal")
+        )
         return
 
     if action == 'deal_description':
+        # Только для крипто/stars: описание вводится после количества
+        temp_deal_data.setdefault(user_id, {})['description'] = text
+        user_states[user_id] = {'action': 'deal_finalize'}
         deal_data = temp_deal_data.get(user_id, {})
-        deal_id = generate_id()
-        buyer_id = deal_data.get('buyer_id', user_id)
-        buyer_username = message.from_user.username or str(buyer_id)
-        amount_display = deal_data.get('amount_display', str(deal_data.get('amount', 0)))
-        currency = deal_data.get('currency', 'RUB')
-
-        deals[deal_id] = {
-            'id': deal_id, 'buyer_id': buyer_id, 'seller_id': None,
-            'buyer_username': buyer_username, 'seller_username': '?',
-            'type': deal_data.get('type', '?'), 'currency': currency,
-            'amount': deal_data.get('amount', 0), 'amount_display': amount_display,
-            'description': text, 'status': 'pending',
-            'created': datetime.now().strftime("%d.%m.%Y %H:%M"),
-        }
-        user_stats.setdefault(buyer_id, {'deals_total': 0, 'deals_success': 0, 'deals_failed': 0, 'status': 'new'})
-        user_stats[buyer_id]['deals_total'] += 1
-        temp_deal_data.pop(user_id, None)
-        del user_states[user_id]
-
-        deal_link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
+        display = deal_data.get('amount_display', '?')
         await message.answer(
-            f"✅ Сделка создана!\n\nID: {deal_id}\nСумма: {amount_display}\nОписание: {text}\n\n"
-            f"Ссылка для второго участника:\n{deal_link}",
+            f"✅ Проверь данные сделки:\n\n"
+            f"📝 Описание: {text}\n"
+            f"💰 Сумма: {display}\n\n"
+            f"Всё верно? Нажми «Создать сделку»",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔗 Открыть сделку", url=deal_link)],
-                [InlineKeyboardButton(text="🔙 Меню", callback_data="back_to_menu")],
+                [InlineKeyboardButton(text="✅ Создать сделку", callback_data="deal_confirm")],
+                [InlineKeyboardButton(text="🔙 Отмена", callback_data="create_deal")],
             ])
         )
-        await log_event('deal_created', buyer_id, f"Сделка @{buyer_username} — {amount_display}")
         return
 
     if action == 'review_select_user':
