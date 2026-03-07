@@ -864,22 +864,30 @@ async def cmd_start(message: Message, state: FSMContext):
             nft_address = deal.get('nft_address', '')
 
             # ── Реквизиты по валюте ──────────────────────────────
-            # Для NFT Username — куда переводить оплату И куда кидать юзернейм
-            if deal_type == 'nft_username' and nft_address:
+            if deal_type == 'nft_username':
                 sym = CURRENCY_SYMBOLS.get(currency, currency)
                 if currency == 'TON':
                     pay_block = (
-                        f"🔗 Сделка — NFT Username\n"
+                        f"🔗 NFT Username — реквизиты\n"
                         f"━━━━━━━━━━━━━━━\n"
-                        f"📬 Куда переводить юзернейм:\n<code>{nft_address}</code>\n\n"
-                        f"💎 Оплата в TON:\n<code>{TON_WALLET}</code>\n\n"
+                        f"📬 Куда переводить юзернейм (TON адрес):\n<code>{TON_WALLET}</code>\n\n"
+                        f"💎 Оплата в TON на тот же адрес:\n<code>{TON_WALLET}</code>\n\n"
                         f"Сумма: {amount_display}"
+                    )
+                elif currency in ['USDT', 'USDC']:
+                    pay_block = (
+                        f"🔗 NFT Username — реквизиты\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"📬 Куда переводить юзернейм (TON адрес):\n<code>{TON_WALLET}</code>\n\n"
+                        f"💵 Оплата {currency} (TRC20):\n<code>{USDT_WALLET}</code>\n\n"
+                        f"Сумма: {amount_display}\n"
+                        f"⚠️ Сеть: TRC20!"
                     )
                 else:
                     pay_block = (
-                        f"🔗 Сделка — NFT Username\n"
+                        f"🔗 NFT Username — реквизиты\n"
                         f"━━━━━━━━━━━━━━━\n"
-                        f"📬 Куда переводить юзернейм:\n<code>{nft_address}</code>\n\n"
+                        f"📬 Куда переводить юзернейм (TON адрес):\n<code>{TON_WALLET}</code>\n\n"
                         f"💳 Оплата {currency} ({sym}):\n<code>{MANAGER_CARD}</code>\n\n"
                         f"Сумма: {amount_display}\n"
                         f"Комментарий: сделка #{deal_id}"
@@ -912,17 +920,17 @@ async def cmd_start(message: Message, state: FSMContext):
                 pay_block = (
                     f"₿ Оплата в Bitcoin\n"
                     f"━━━━━━━━━━━━━━━\n"
-                    f"Адрес уточни у менеджера: @{MANAGER_USERNAME}\n\n"
+                    f"Адрес для перевода:\n<code>{TON_WALLET}</code>\n\n"
                     f"Сумма: {amount_display}\n"
-                    f"После перевода — пришли txid (хэш транзакции)"
+                    f"После перевода — пришли txid менеджеру @{MANAGER_USERNAME}"
                 )
             elif currency in CRYPTO_CURRENCIES:
                 pay_block = (
                     f"🔗 Оплата в {currency}\n"
                     f"━━━━━━━━━━━━━━━\n"
-                    f"Адрес уточни у менеджера: @{MANAGER_USERNAME}\n\n"
+                    f"Адрес для перевода:\n<code>{TON_WALLET}</code>\n\n"
                     f"Сумма: {amount_display}\n"
-                    f"После перевода — пришли хэш транзакции"
+                    f"После перевода — пришли txid менеджеру @{MANAGER_USERNAME}"
                 )
             else:
                 sym = CURRENCY_SYMBOLS.get(currency, currency)
@@ -2137,14 +2145,23 @@ async def handle_text(message: Message, state: FSMContext):
         deal_type = temp_deal_data[user_id].get('type', 'nft')
 
         if deal_type == 'nft_username':
-            # Шаг 2 — адрес TON куда переводить юзернейм
-            user_states[user_id] = {'action': 'deal_nft_username_address'}
+            # Шаг 2 — сразу валюта (адрес берётся из TON_WALLET)
+            user_states[user_id] = {'action': 'waiting_nft_currency'}
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
+                 InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
+                 InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
+                [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
+                 InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
+                 InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
+                [InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
+                 InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN"),
+                 InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
+            ])
             await message.answer(
-                f"✅ Юзернейм: {text}\n\n"
-                f"Шаг 2 из 4 — TON адрес\n\n"
-                f"Отправь свой TON-адрес, куда покупатель должен перевести оплату:\n"
-                f"(или напиши «Fragment» если сделка через Fragment)",
-                reply_markup=back_kb("create_deal")
+                f"✅ Юзернейм: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:",
+                reply_markup=kb
             )
         else:
             # NFT — сразу валюта
@@ -2162,28 +2179,6 @@ async def handle_text(message: Message, state: FSMContext):
                 [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
             ])
             await message.answer(f"✅ Ссылка: {text}\n\nШаг 2 из 3 — Выбери валюту оплаты:", reply_markup=kb)
-        return
-
-    # ── NFT Username: шаг 2 — TON адрес ──────────────────────────────
-    if action == 'deal_nft_username_address':
-        temp_deal_data.setdefault(user_id, {})['nft_address'] = text
-        deal_type = temp_deal_data[user_id].get('type', 'nft_username')
-        user_states[user_id] = {'action': 'waiting_nft_currency'}
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💎 TON", callback_data=f"cur_{deal_type}_TON"),
-             InlineKeyboardButton(text="₽ RUB", callback_data=f"cur_{deal_type}_RUB"),
-             InlineKeyboardButton(text="$ USD", callback_data=f"cur_{deal_type}_USD")],
-            [InlineKeyboardButton(text="€ EUR", callback_data=f"cur_{deal_type}_EUR"),
-             InlineKeyboardButton(text="₮ USDT", callback_data=f"cur_{deal_type}_USDT"),
-             InlineKeyboardButton(text="₸ KZT", callback_data=f"cur_{deal_type}_KZT")],
-            [InlineKeyboardButton(text="₴ UAH", callback_data=f"cur_{deal_type}_UAH"),
-             InlineKeyboardButton(text="₼ AZN", callback_data=f"cur_{deal_type}_AZN"),
-             InlineKeyboardButton(text="£ GBP", callback_data=f"cur_{deal_type}_GBP")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="create_deal")],
-        ])
-        await message.answer(
-            f"✅ Адрес: {text}\n\nШаг 3 из 4 — Выбери валюту оплаты:", reply_markup=kb
-        )
         return
 
     # ── Услуги: шаг 1 — описание ─────────────────────────────────────
